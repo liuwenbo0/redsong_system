@@ -388,6 +388,21 @@
                             `;
                             articleList.appendChild(item);
                         });
+
+                        // --- 新增：自动播放 URL 参数指定的视频 ---
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const targetId = urlParams.get('article_id');
+                        if (targetId) {
+                            const targetArticle = data.articles.find(a => String(a.id) === targetId);
+                            if (targetArticle && targetArticle.video_url) {
+                                // 稍微延迟一下，确保页面渲染完成体验更好
+                                setTimeout(() => {
+                                    videoPlayer.src = targetArticle.video_url;
+                                    videoModal.classList.remove('hidden');
+                                    videoPlayer.play().catch(e => console.log("Auto-play prevented:", e));
+                                }, 500);
+                            }
+                        }
                     } else {
                         articleList.innerHTML = '<p class="empty-list-text">暂无微课内容。</p>';
                     }

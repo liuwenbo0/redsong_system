@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# 数智红韵网 - 本地部署脚本
-# 作者: AI Assistant
-# 版本: 1.0
+# 数智红韵网 - 本地部署脚本 (macOS/Linux with uv)
+# 版本: 2.0 (uv adaptation)
 
 set -e  # 遇到错误立即退出
 
@@ -35,51 +34,56 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# 检查Python版本
-check_python() {
-    log_info "检查Python环境..."
-    
-    if ! command_exists python3; then
-        log_error "Python 3 未安装。请先安装Python 3.8+"
-        exit 1
+# 检查uv是否安装
+check_uv() {
+    log_info "检查uv环境..."
+    if ! command_exists uv; then
+        log_warning "uv 未安装。尝试安装 uv..."
+        if command_exists brew; then
+            brew install uv
+        else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            source $HOME/.cargo/env
+        fi
+        
+        if ! command_exists uv; then
+             log_error "uv 安装失败，请手动安装: curl -LsSf https://astral.sh/uv/install.sh | sh"
+             exit 1
+        fi
     fi
-    
-    PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    REQUIRED_VERSION="3.8"
-    
-    if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
-        log_error "Python版本过低。当前版本: $PYTHON_VERSION, 要求: $REQUIRED_VERSION+"
-        exit 1
-    fi
-    
-    log_success "Python版本检查通过: $PYTHON_VERSION"
+    log_success "uv 已安装: $(uv --version)"
 }
 
-# 创建虚拟环境
+# 创建虚拟环境 (使用 uv)
 create_venv() {
-    log_info "创建Python虚拟环境..."
+    log_info "创建Python虚拟环境 (.venv)..."
     
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
+    # uv 默认创建 .venv
+    if [ ! -d ".venv" ]; then
+        uv venv .venv
         log_success "虚拟环境创建完成"
     else
-        log_warning "虚拟环境已存在，跳过创建"
+        log_warning "虚拟环境 .venv 已存在，跳过创建"
     fi
 }
 
-# 激活虚拟环境
+# 激活虚拟环境 (仅用于当前 shell 上下文，脚本内部使用完整路径)
 activate_venv() {
-    log_info "激活虚拟环境..."
-    source venv/bin/activate
-    log_success "虚拟环境已激活"
+    log_info "检查虚拟环境..."
+    if [ ! -f ".venv/bin/activate" ]; then
+        log_error "虚拟环境未找到，请检查创建步骤"
+        exit 1
+    fi
+    # source .venv/bin/activate  # 在脚本中source不一定影响父shell，主要依靠路径调用
 }
 
-# 安装依赖
+# 安装依赖 (使用 uv)
 install_dependencies() {
-    log_info "安装Python依赖包..."
+    log_info "安装Python依赖包 (via uv)..."
     
     if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt
+        # 使用虚拟环境中的 pip
+        uv pip install -p .venv -r requirements.txt
         log_success "依赖包安装完成"
     else
         log_error "requirements.txt 文件不存在"
@@ -95,20 +99,10 @@ setup_env() {
         if [ -f ".env.example" ]; then
             cp .env.example .env
             log_success "已从 .env.example 创建 .env 文件"
-            log_warning "请编辑 .env 文件，填入您的API密钥"
-            echo
-            echo "必需的API密钥:"
-            echo "- OPENROUTER_API_KEY: OpenRouter API密钥"
-            echo "- KIE_API_KEY: Kie.ai API密钥"
-            echo
-            read -p "是否现在编辑 .env 文件? (y/n): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                ${EDITOR:-nano} .env
-            fi
+            log_warning "请记得编辑 .env 文件配置API密钥"
         else
             log_error ".env.example 文件不存在"
-            exit 1
+            # 不强制退出，允许手动配置
         fi
     else
         log_success ".env 文件已存在"
@@ -119,7 +113,7 @@ setup_env() {
 check_database() {
     log_info "检查数据库..."
     
-    if [ ! -f "project.db" ]; then
+    if [ ! -f "instance/project.db" ] && [ ! -f "project.db" ]; then
         log_info "数据库文件不存在，将在首次运行时自动创建"
     else
         log_success "数据库文件存在"
@@ -130,8 +124,8 @@ check_database() {
 test_app() {
     log_info "测试应用启动..."
     
-    # 导入Flask应用测试
-    python3 -c "
+    # 使用虚拟环境的 python
+    ./.venv/bin/python3 -c "
 import sys
 sys.path.insert(0, '.')
 try:
@@ -160,7 +154,7 @@ create_start_script() {
 # 数智红韵网启动脚本
 
 # 激活虚拟环境
-source venv/bin/activate
+source .venv/bin/activate
 
 # 设置环境变量
 export FLASK_APP=app.py
@@ -187,7 +181,7 @@ create_gunicorn_script() {
 # 数智红韵网 Gunicorn启动脚本
 
 # 激活虚拟环境
-source venv/bin/activate
+source .venv/bin/activate
 
 # 设置环境变量
 export FLASK_APP=app.py
@@ -216,7 +210,7 @@ check_port() {
             return 0
         fi
     else
-        log_info "无法检查端口占用 (lsof 未安装)"
+        # macOS 通常有 lsof，如果没有则跳过检查
         return 0
     fi
 }
@@ -224,7 +218,7 @@ check_port() {
 # 主函数
 main() {
     echo "=========================================="
-    echo "  数智红韵网 - 本地部署脚本"
+    echo "  数智红韵网 - 本地部署脚本 (uv版)"
     echo "=========================================="
     echo
     
@@ -235,9 +229,9 @@ main() {
     fi
     
     # 执行部署步骤
-    check_python
+    check_uv
     create_venv
-    activate_venv
+    # activate_venv # 脚本中不需要 source，直接引用路径
     install_dependencies
     setup_env
     check_database
@@ -268,9 +262,6 @@ main() {
     else
         log_warning "端口8000被占用，请检查或使用其他端口"
     fi
-    
-    echo
-    log_info "如需配置Nginx，请参考 README.md 中的生产环境部署指南"
 }
 
 # 脚本入口

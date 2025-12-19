@@ -296,6 +296,17 @@
             guideInput.addEventListener('keypress', (e) => (e.key === 'Enter') && handleGuideCommand(guideInput.value.trim()));
             
 
+            // --- Auto-fill Logic ---
+            const autoLyrics = localStorage.getItem('auto_fill_lyrics');
+            if (autoLyrics) {
+                lyricsOutput.value = autoLyrics;
+                generateSongButton.disabled = false;
+                // Optional: Scroll to the lyrics section
+                lyricsOutput.scrollIntoView({ behavior: 'smooth' });
+                // Clear it so it doesn't persist forever
+                localStorage.removeItem('auto_fill_lyrics');
+            }
+
             // --- 第一步：作词逻辑 ---
             generateLyricsButton.addEventListener('click', function() {
                 const prompt = lyricsPrompt.value.trim();

@@ -11,5 +11,10 @@
 /model/*
 /tmp/*
 /__pycache__/*
-/project.db
+/instance/project.db
 /venv/*
+/services/__pycache__/
+.env*
+.idea/
+.cospec/
+.github/
