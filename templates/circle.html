@@ -1,0 +1,489 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>听·山河</title>
+    <script src="{{ url_for('static', filename='assets/js/tailwindcss.min.js') }}"></script>
+    <!-- 引入 ECharts -->
+    <script src="{{ url_for('static', filename='assets/js/echarts.min.js') }}"></script>
+    <!-- 引入中国地图 JS 文件 -->
+    <script src="{{ url_for('static', filename='assets/js/china.js') }}"></script>
+    <!-- 引入页面专属的CSS文件 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/circle.css') }}">
+</head>
+<body class="page-body" style="background-image: url('static/images/bizhi6.jpg'); 
+                                background-size: cover;
+                                background-repeat: no-repeat;
+                                background-attachment: fixed;">
+
+    <div id="page-loader" class="page-loader">
+        <div class="spinner"></div>
+    </div>
+    <!-- 统一导航栏 -->
+    <div id="page-content">
+        <nav class="nav-bar">
+            <div class="nav-container">
+                <div class="nav-content">
+                    <div class="nav-logo-section">
+                    <a href="/" class="nav-logo-link">
+                        <img src="static/images/logo.png" alt="Logo" class="nav-logo-icon">
+                        数智红韵网
+                    </a>
+                    </div>
+                    <div class="nav-links-section">
+                        <a href="/circle" class="nav-link-active" aria-current="page">听·山河</a>
+                        <a href="/making" class="nav-link">问·古今</a>
+                        <a href="/plaza" class="nav-link">阅·峥嵘</a>
+                        <a href="/creation" class="nav-link">谱·华章</a>
+                    </div>
+                    <div class="nav-action-section">
+                        <div class="nav-favorite-wrapper">
+                            <a href="/favorites" class="nav-favorite-link" title="我的收藏">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                </svg>
+                            </a>
+                            <!-- 指示器现在在包装器内部 -->
+                            <span id="plus-one-indicator" class="plus-one-indicator">+1</span>
+                        </div>
+                        <!-- (新增) 登录/注册/欢迎您 模块 -->
+                        <div id="auth-container" class="auth-container">
+                            <!-- JS会在这里填充“登录/注册”按钮或“欢迎您, [用户名]” -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="main-container">
+                <div class="content-card">
+                    <div class="page-header-wrapper">
+                        <h1 class="page-title">山河壮丽 · 寻访红色音乐足迹</h1>
+                    </div>
+
+                    <div class="content-grid">
+                        <!-- 左侧：地图卡片 -->
+                        <div class="module-card">
+                            <div id="china-map" class="map-container"></div>
+                        </div>
+
+                        <!-- 右侧：列表卡片 -->
+                        <div class="module-card ">
+                            <!-- 搜索 -->
+                            <div class="search-container">
+                                <input type="text" id="search-input" placeholder="搜索歌曲或艺术家..." class="search-input">
+                                <button id="search-button" class="search-button">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                </button>
+                            </div>
+
+                            <!-- 列表标题 -->
+                            <div class="module-header" style="margin-top: 0.5rem;">
+                                <h2 id="song-list-title" class="module-title-text">全国精选红歌</h2>
+                            </div>
+
+                            <div id="song-list-container" class="song-list-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- 地域分析 -->
+                    <div id="region-analysis-section" class="analysis-box hidden">
+                        <div class="analysis-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#C12C1F]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                            <h3 class="analysis-title">红韵地域志 · <span id="analysis-region-name"></span></h3>
+                        </div>
+                        <div id="analysis-content" class="analysis-content"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- (新增) 登录/注册 弹窗 -->
+    <div id="auth-modal-overlay" class="auth-modal-overlay hidden">
+        <div id="auth-modal-content" class="auth-modal-content">
+            <button id="auth-modal-close" class="auth-modal-close">&times;</button>
+            
+            <!-- 登录表单 -->
+            <div id="login-form">
+                <h2 class="auth-title">登录</h2>
+                <div id="login-error" class="auth-error hidden"></div>
+                <input type="text" id="login-username" placeholder="用户名" class="auth-input">
+                <input type="password" id="login-password" placeholder="密码" class="auth-input">
+                <button id="login-submit" class="auth-button">登录</button>
+                <p class="auth-toggle">没有账户？ <a href="#" id="show-register">立即注册</a></p>
+                <p class="auth-visitor-mode">
+                    <a href="#" id="visitor-mode-button">以游客模式浏览</a>
+                </p>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="register-form" class="hidden">
+                <h2 class="auth-title">注册</h2>
+                <div id="register-error" class="auth-error hidden"></div>
+                <input type="text" id="register-username" placeholder="设置用户名（不超过15个字符）" class="auth-input">
+                <input type="password" id="register-password" placeholder="设置密码（需包含字母和数字）" class="auth-input">
+                <input type="password" id="register-confirm-password" placeholder="确认密码" class="auth-input">
+                <button id="register-submit" class="auth-button">注册并登录</button>
+                <p class="auth-toggle">已有账户？ <a href="#" id="show-login">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-guide-mascot" class="ai-guide-mascot">
+        <img src="/static/images/hongxiaoyun.png" alt="AI Guide" class="ai-guide-image"/>
+    </div>
+
+    <div id="ai-guide-modal" class="ai-guide-modal hidden">
+        <div class="guide-header flex justify-between items-center">
+            <span>红韵向导 AI</span>
+            <button id="guide-close" class="guide-close">&times;</button>
+        </div>
+        <div class="guide-messages" id="guide-messages">
+            <div class="guide-message guide-response">
+                <p>👋 <strong>您好！我是红小韵。</strong></p>
+                <p>这里是<b>听·山河</b>，您可以通过中国地图快速查找并播放各地的经典红歌</p>
+            </div>
+            <!-- 预设指令 -->
+            <button class="guide-question-button" data-command="这个网站的功能是什么？">❓ 网站功能介绍</button>
+            <button class="guide-question-button" data-command="我想搜索红歌">🎵 我想搜索红歌</button>
+            <button class="guide-question-button" data-command="给我讲讲《东方红》的故事">📖 讲讲《东方红》的故事</button>
+        </div>
+        <div class="guide-input-area flex items-center gap-2">
+            <input type="text" id="guide-input" class="guide-input" placeholder="输入您的指令..." />
+            <button id="guide-send" class="guide-send-button">发送</button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='assets/js/marked.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common_auth.js') }}"></script>
+
+    <!-- (更新) 页面专属脚本，已恢复完整 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchButton = document.getElementById('search-button');
+            const searchInput = document.getElementById('search-input');
+            const songListContainer = document.getElementById('song-list-container');
+            const songListTitle = document.getElementById('song-list-title');
+            const plusOneIndicator = document.getElementById('plus-one-indicator');
+            const chinaMap = echarts.init(document.getElementById('china-map'));
+            let lastClickedRegion = null;
+
+            // 分析模块元素
+            const analysisSection = document.getElementById('region-analysis-section');
+            const analysisTitleRegion = document.getElementById('analysis-region-name');
+            const analysisContent = document.getElementById('analysis-content');
+
+            // --- AI Guide 逻辑 (为简洁起见，这里包含关键函数) ---
+            const guideMascot = document.getElementById('ai-guide-mascot');
+            const guideModal = document.getElementById('ai-guide-modal');
+            const guideClose = document.getElementById('guide-close');
+            const guideMessages = document.getElementById('guide-messages');
+            const guideInput = document.getElementById('guide-input');
+            const guideSend = document.getElementById('guide-send');
+
+            // 辅助CSS：小加载动画 (必须在这里定义，因为不能保证 common.js 里的函数能被外部调用)
+            const styleSheet = document.createElement("style");
+            styleSheet.type = "text/css";
+            styleSheet.innerText = `
+                .spinner-small {
+                    width: 1rem; height: 1rem;
+                    border: 2px solid currentColor;
+                    border-top-color: transparent;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                  to { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(styleSheet);
+
+            function addGuideMessage(text, isUser = false, isMarkdown = false) {
+                const msg = document.createElement('div');
+                msg.className = 'guide-message';
+                
+                if (isUser) {
+                    msg.innerHTML = `<p style="text-align: right; font-style: italic; color: #666;">我：${text}</p>`;
+                } else {
+                    msg.className += ' guide-response';
+                    const contentDiv = document.createElement('div');
+                    
+                    if (isMarkdown && typeof marked !== 'undefined') {
+                        // 使用 marked 解析 Markdown
+                        contentDiv.innerHTML = marked.parse(text);
+                    } else {
+                        contentDiv.innerHTML = `<p>${text}</p>`;
+                    }
+                    msg.appendChild(contentDiv);
+                }
+                
+                guideMessages.appendChild(msg);
+                guideMessages.scrollTop = guideMessages.scrollHeight;
+                return msg;
+            }
+            
+            function handleGuideCommand(query) {
+                if (!query) return;
+                guideInput.value = '';
+                guideSend.disabled = true;
+
+                addGuideMessage(query, true);
+                
+                // 添加“思考中”状态
+                const thinkingMsg = addGuideMessage("红小韵正在查阅资料...", false);
+                thinkingMsg.innerHTML = `<p><div class="spinner-small" style="width:1rem; height:1rem; border-color:#fee2e2; border-top-color:var(--theme-red); margin: 0 0.5rem; display: inline-block;"></div> 红小韵正在查阅资料...</p>`;
+
+                fetch('/api/guide/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    thinkingMsg.remove(); // 移除思考动画
+                    
+                    if (data.action === 'navigate') {
+                        // 1. 导航指令：先显示说明文字，再显示按钮
+                        const introText = data.intro_message || `没问题，这就带您去：**${data.label}**`;
+                        addGuideMessage(introText, false, true); // 启用 Markdown
+
+                        const actionLink = document.createElement('a');
+                        actionLink.className = 'guide-action-link';
+                        actionLink.href = data.path;
+                        actionLink.textContent = `👉 点击前往 ${data.label.replace('前往', '').replace('开始', '').replace('进入', '').replace('查看', '')}`;
+                        
+                        const linkMsg = document.createElement('div');
+                        linkMsg.className = 'guide-message';
+                        linkMsg.appendChild(actionLink);
+                        guideMessages.appendChild(linkMsg);
+
+                    } else if (data.action === 'text_response') {
+                        // 2. 文本回复：直接显示，启用 Markdown
+                        addGuideMessage(data.message, false, true);
+                    } else {
+                        addGuideMessage("抱歉，我没听懂您的指令。", false);
+                    }
+                })
+                .catch(error => {
+                    console.error("AI Guide Error:", error);
+                    thinkingMsg.remove();
+                    addGuideMessage("红小韵好像断线了，请稍后再试。", false);
+                })
+                .finally(() => {
+                    guideSend.disabled = false;
+                    guideMessages.scrollTop = guideMessages.scrollHeight;
+                });
+            }
+
+            guideMascot.addEventListener('click', () => {
+                guideModal.classList.toggle('hidden');
+                if (!guideModal.classList.contains('hidden')) {
+                     guideMessages.scrollTop = guideMessages.scrollHeight;
+                     guideInput.focus();
+                }
+            });
+            guideClose.addEventListener('click', () => guideModal.classList.add('hidden'));
+            
+            document.querySelectorAll('.guide-question-button').forEach(button => {
+                button.addEventListener('click', (e) => handleGuideCommand(e.target.dataset.command));
+            });
+            guideSend.addEventListener('click', () => handleGuideCommand(guideInput.value.trim()));
+            guideInput.addEventListener('keypress', (e) => (e.key === 'Enter') && handleGuideCommand(guideInput.value.trim()));
+
+            // --- 3. 核心功能：地图与地域分析 ---
+            
+            // (新增) 加载地域分析
+            function loadRegionAnalysis(regionName) {
+                // 显示分析模块
+                analysisSection.classList.remove('hidden');
+                analysisTitleRegion.textContent = regionName;
+                analysisContent.innerHTML = `<p class="flex items-center text-gray-500"><span class="spinner-small mr-2" style="border-color:#999; border-top-color:#C12C1F;"></span> 正在生成【${regionName}】的红歌文化深度解析...</p>`;
+                
+                // 滚动到分析区域 (可选)
+                analysisSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                fetch('/api/region/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ region: regionName })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.analysis) {
+                        const countBadge = `<span class="analysis-tag">收录 ${data.count || 0} 首</span>`;
+                        // 使用 marked 解析 markdown
+                        analysisContent.innerHTML = countBadge + marked.parse(data.analysis);
+                    } else {
+                        analysisContent.innerHTML = "暂时无法获取分析数据。";
+                    }
+                })
+                .catch(err => {
+                    console.error("Analysis Error:", err);
+                    analysisContent.innerHTML = "分析服务暂时繁忙，请稍后再试。";
+                });
+            }
+
+            const option = {
+                tooltip: { trigger: 'item', formatter: '{b}' },
+                series: [{
+                    name: '中国',
+                    type: 'map',
+                    map: 'china',
+                    label: { show: true, color: '#333', fontSize: 10 },
+                    itemStyle: { 
+                            areaColor: '#FFFBF5', // 浅米色背景
+                            borderColor: '#EAE1D3', // 边框颜色
+                            borderWidth: 1 
+                        },
+                    emphasis: { 
+                            label: { color: 'white' }, 
+                            itemStyle: { areaColor: '#C12C1F' } // 高亮中国红
+                        },
+                    select: { 
+                        label: { color: 'white' }, 
+                        itemStyle: { areaColor: '#C12C1F' } 
+                    },
+                    roam: 'scale',
+                    data: []
+                }]
+            };
+            chinaMap.setOption(option);
+            
+            chinaMap.on('click', function (params) {
+                if (params.name) {
+                    if (lastClickedRegion === params.name) {
+                        // 取消选择
+                        songListTitle.textContent = '全国精选红歌';
+                        fetchAndDisplaySongs('/api/songs/by_region/全国');
+                        analysisSection.classList.add('hidden'); // 隐藏分析
+                        lastClickedRegion = null; 
+                        chinaMap.dispatchAction({ type: 'downplay', seriesIndex: 0 });
+                    } else {
+                        // 选中新地区
+                        songListTitle.textContent = `${params.name}地区的红歌`;
+                        fetchAndDisplaySongs(`/api/songs/by_region/${params.name}`);
+                        
+                        // 💥 触发地域分析 💥
+                        loadRegionAnalysis(params.name);
+
+                        lastClickedRegion = params.name;
+                        chinaMap.dispatchAction({ type: 'downplay', seriesIndex: 0 });
+                        chinaMap.dispatchAction({ type: 'highlight', seriesIndex: 0, name: params.name });
+                    }
+                } else {
+                    songListTitle.textContent = '全国精选红歌';
+                    fetchAndDisplaySongs('/api/songs/by_region/全国');
+                    analysisSection.classList.add('hidden');
+                    lastClickedRegion = null;
+                    chinaMap.dispatchAction({ type: 'downplay', seriesIndex: 0 });
+                }
+            });
+            
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', (e) => (e.key === 'Enter') && performSearch());
+
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', (e) => (e.key === 'Enter') && performSearch());
+
+            function performSearch() {
+                const query = searchInput.value;
+                songListTitle.textContent = query ? `“${query}”的搜索结果` : "全部歌曲";
+                fetchAndDisplaySongs(`/api/songs/search?q=${query}`);
+                analysisSection.classList.add('hidden'); // 搜索时隐藏地域分析
+                lastClickedRegion = null;
+            }
+
+            function fetchAndDisplaySongs(apiUrl) {
+                songListContainer.innerHTML = '<p class="loading-text p-4 text-center text-gray-500">正在加载中...</p>';
+                fetch(apiUrl)
+                    .then(response => {
+                        if (response.status === 401) {
+                            document.getElementById('auth-modal-open')?.click();
+                            songListContainer.innerHTML = '<p class="error-text p-4 text-center text-red-500">请先登录后查看歌曲。</p>';
+                            return null;
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if(data) renderSongList(data.songs);
+                    })
+                    .catch(error => {
+                        console.error('获取歌曲失败:', error);
+                        songListContainer.innerHTML = '<p class="error-text p-4 text-center text-red-500">加载歌曲失败，请稍后再试。</p>';
+                    });
+            }
+            
+            function renderSongList(songs) {
+                songListContainer.innerHTML = '';
+                if (songs && songs.length > 0) {
+                    songs.forEach(song => {
+                        const songElement = document.createElement('div');
+                        songElement.className = 'song-item';
+                        songElement.innerHTML = `
+                            <div class="song-item-content">
+                                <div class="song-details">
+                                    <h3 class="song-title">${song.title}</h3>
+                                    <p class="song-artist">${song.artist} - <span class="song-region">${song.region}</span></p>
+                                </div>
+                                <div class="song-controls">
+                                    ${song.audio_url && song.audio_url !== '#' ? `<audio controls class="audio-player" src="${song.audio_url}"></audio>` : `<span class="no-audio-text">暂无音频</span>`}
+                                    <button class="favorite-button" data-song-id="${song.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${song.is_favorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            ${song.description ? `<p class="song-description">${song.description}</p>` : ''}
+                        `;
+                        songListContainer.appendChild(songElement);
+                    });
+                } else {
+                    songListContainer.innerHTML = '<p class="empty-list-text">未找到相关歌曲。</p>';
+                }
+            }
+
+            songListContainer.addEventListener('click', function(event) {
+                const button = event.target.closest('.favorite-button');
+                if (button) {
+                    const songId = button.dataset.songId;
+                    const iconSvg = button.querySelector('svg');
+
+                    fetch(`/api/song/toggle_favorite/${songId}`, { method: 'POST' })
+                        .then(response => {
+                             if (response.status === 401) {
+                                // (新增) 如果未登录，触发登录弹窗
+                                document.getElementById('auth-modal-open')?.click();
+                                return null;
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data && data.success) {
+                                if (data.song.is_favorite) {
+                                    iconSvg.classList.add('text-red-500');
+                                    iconSvg.classList.remove('text-gray-400', 'hover:text-red-500');
+                                    if(plusOneIndicator) {
+                                        plusOneIndicator.classList.add('plus-one-anim');
+                                        setTimeout(() => {
+                                            plusOneIndicator.classList.remove('plus-one-anim');
+                                        }, 600); 
+                                    }
+                                } else {
+                                    iconSvg.classList.remove('text-red-500');
+                                    iconSvg.classList.add('text-gray-400', 'hover:text-red-500');
+                                }
+                            }
+                        });
+                }
+            });
+
+            // 初始加载全部歌曲
+            performSearch();
+        });
+    </script>
+</body>
+</html>

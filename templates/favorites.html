@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的收藏</title>
+    <script src="{{ url_for('static', filename='assets/js/tailwindcss.min.js') }}"></script>
+    <!-- 引入通用CSS和页面专属CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/favorites.css') }}">
+</head>
+<body class="page-body" style="background-image: url('static/images/bizhi6.jpg'); 
+                                background-size: cover;
+                                background-repeat: no-repeat;
+                                background-attachment: fixed;">
+
+    <div id="page-loader" class="page-loader">
+        <div class="spinner"></div>
+    </div>
+    <!-- 统一导航栏 -->
+    <div id="page-content">
+        <nav class="nav-bar">
+            <div class="nav-container">
+                <div class="nav-content">
+                    <div class="nav-logo-section">
+                    <a href="/" class="nav-logo-link">
+                        <img src="static/images/logo.png" alt="Logo" class="nav-logo-icon">
+                        数智红韵网
+                    </a>
+                    </div>
+                    <div class="nav-links-section">
+                        <a href="/circle" class="nav-link">听·山河</a>
+                        <a href="/making" class="nav-link">问·古今</a>
+                        <a href="/plaza" class="nav-link">阅·峥嵘</a>
+                        <a href="/creation" class="nav-link">谱·华章</a>
+                    </div>
+                    <div class="nav-action-section">
+                        <a href="/favorites" class="nav-favorite-link" title="我的收藏">
+                            <!-- 高亮当前页面的爱心图标 -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        </a>
+
+                        <!-- (新增) 登录/注册/欢迎您 模块 -->
+                        <div id="auth-container" class="auth-container">
+                            <!-- JS会在这里填充“登录/注册”按钮或“欢迎您, [用户名]” -->
+                        </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="main-container">
+                <div class="content-card">
+                    <h1 class="page-title">我的收藏</h1>
+                    <div id="song-list-container" class="song-list-container">
+                        <!-- JS动态加载歌曲 -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- (新增) 登录/注册 弹窗 -->
+    <div id="auth-modal-overlay" class="auth-modal-overlay hidden">
+        <div id="auth-modal-content" class="auth-modal-content">
+            <button id="auth-modal-close" class="auth-modal-close">&times;</button>
+            
+            <!-- 登录表单 -->
+            <div id="login-form">
+                <h2 class="auth-title">登录</h2>
+                <div id="login-error" class="auth-error hidden"></div>
+                <input type="text" id="login-username" placeholder="用户名" class="auth-input">
+                <input type="password" id="login-password" placeholder="密码" class="auth-input">
+                <button id="login-submit" class="auth-button">登录</button>
+                <p class="auth-toggle">没有账户？ <a href="#" id="show-register">立即注册</a></p>
+                <p class="auth-visitor-mode">
+                    <a href="#" id="visitor-mode-button">以游客模式浏览</a>
+                </p>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="register-form" class="hidden">
+                <h2 class="auth-title">注册</h2>
+                <div id="register-error" class="auth-error hidden"></div>
+                <input type="text" id="register-username" placeholder="设置用户名（不超过15个字符）" class="auth-input">
+                <input type="password" id="register-password" placeholder="设置密码（需包含字母和数字）" class="auth-input">
+                <input type="password" id="register-confirm-password" placeholder="确认密码" class="auth-input">
+                <button id="register-submit" class="auth-button">注册并登录</button>
+                <p class="auth-toggle">已有账户？ <a href="#" id="show-login">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+    <!-- AI Guide (红小韵) -->
+    <div id="ai-guide-mascot" class="ai-guide-mascot">
+        <img src="{{ url_for('static', filename='images/hongxiaoyun.png') }}" alt="红小韵" class="ai-guide-image"/>
+    </div>
+
+    <div id="ai-guide-modal" class="ai-guide-modal hidden">
+        <div class="guide-header flex justify-between items-center">
+            <span>红韵向导 AI</span>
+            <button id="guide-close" class="guide-close">&times;</button>
+        </div>
+        <div class="guide-messages" id="guide-messages">
+            <div class="guide-message guide-response">
+                <p>👋 <strong>您好！我是红小韵。</strong></p>
+                <p>这里是您的<b>收藏夹</b>，喜欢哪首红歌，记得多听几遍哦。</p>
+            </div>
+            <button class="guide-question-button" data-command="这个网站的功能是什么？">❓ 网站功能介绍</button>
+            <button class="guide-question-button" data-command="我想搜索红歌">🎵 我想搜索红歌</button>
+            <button class="guide-question-button" data-command="给我讲讲《东方红》的故事">📖 讲讲《东方红》的故事</button>
+        </div>
+        <div class="guide-input-area flex items-center gap-2">
+            <input type="text" id="guide-input" class="guide-input" placeholder="输入指令..." />
+            <button id="guide-send" class="guide-send-button">发送</button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='assets/js/marked.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common_auth.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const songListContainer = document.getElementById('song-list-container');
+
+            // --- AI Guide 逻辑 ---
+            const guideMascot = document.getElementById('ai-guide-mascot');
+            const guideModal = document.getElementById('ai-guide-modal');
+            const guideClose = document.getElementById('guide-close');
+            const guideMessages = document.getElementById('guide-messages');
+            const guideInput = document.getElementById('guide-input');
+            const guideSend = document.getElementById('guide-send');
+
+            // 注入 CSS
+            const styleSheet = document.createElement("style");
+            styleSheet.type = "text/css";
+            styleSheet.innerText = `
+                .spinner-small { width: 1rem; height: 1rem; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `;
+            document.head.appendChild(styleSheet);
+
+            function addGuideMessage(text, isUser = false, isMarkdown = false) {
+                const msg = document.createElement('div');
+                msg.className = 'guide-message';
+                if (isUser) {
+                    msg.innerHTML = `<p style="text-align: right; font-style: italic; color: #666;">我：${text}</p>`;
+                } else {
+                    msg.className += ' guide-response';
+                    const contentDiv = document.createElement('div');
+                    if (isMarkdown && typeof marked !== 'undefined') {
+                        contentDiv.innerHTML = marked.parse(text);
+                    } else {
+                        contentDiv.innerHTML = `<p>${text}</p>`;
+                    }
+                    msg.appendChild(contentDiv);
+                }
+                guideMessages.appendChild(msg);
+                guideMessages.scrollTop = guideMessages.scrollHeight;
+                return msg;
+            }
+            
+            function handleGuideCommand(query) {
+                if (!query) return;
+                guideInput.value = '';
+                guideSend.disabled = true;
+                addGuideMessage(query, true);
+                const thinkingMsg = addGuideMessage("红小韵正在查阅资料...", false);
+                thinkingMsg.innerHTML = `<p><div class="spinner-small" style="width:1rem; height:1rem; border-color:#fee2e2; border-top-color:var(--theme-red); margin: 0 0.5rem; display: inline-block;"></div> 红小韵正在查阅资料...</p>`;
+
+                fetch('/api/guide/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    thinkingMsg.remove();
+                    if (data.action === 'navigate') {
+                        const introText = data.intro_message || `好的，为您跳转到：**${data.label}**`;
+                        addGuideMessage(introText, false, true);
+                        const actionLink = document.createElement('a');
+                        actionLink.className = 'guide-action-link';
+                        actionLink.href = data.path;
+                         actionLink.textContent = `👉 点击前往 ${data.label.replace('前往', '').replace('开始', '').replace('进入', '').replace('查看', '')}`;
+                        
+                        const linkMsg = document.createElement('div');
+                        linkMsg.className = 'guide-message';
+                        linkMsg.appendChild(actionLink);
+                        guideMessages.appendChild(linkMsg);
+
+                    } else if (data.action === 'text_response') {
+                        // 文本回复也支持 Markdown
+                        addGuideMessage(data.message, false, true);
+                    } else {
+                        addGuideMessage("抱歉，我没听懂您的指令。", false);
+                    }
+                })
+                .catch(error => {
+                    console.error("AI Guide Error:", error);
+                    thinkingMsg.remove();
+                    addGuideMessage("红小韵好像断线了，请稍后再试。", false);
+                })
+                .finally(() => {
+                    guideSend.disabled = false;
+                    guideMessages.scrollTop = guideMessages.scrollHeight;
+                });
+            }
+            guideMascot.addEventListener('click', () => { guideModal.classList.toggle('hidden'); if (!guideModal.classList.contains('hidden')) { guideMessages.scrollTop = guideMessages.scrollHeight; guideInput.focus(); } });
+            guideClose.addEventListener('click', () => guideModal.classList.add('hidden'));
+            document.querySelectorAll('.guide-question-button').forEach(button => { button.addEventListener('click', (e) => handleGuideCommand(e.target.dataset.command)); });
+            guideSend.addEventListener('click', () => handleGuideCommand(guideInput.value.trim()));
+            guideInput.addEventListener('keypress', (e) => (e.key === 'Enter') && handleGuideCommand(guideInput.value.trim()));
+            
+
+            function fetchAndDisplayFavorites() {
+                songListContainer.innerHTML = '<p class="loading-text">正在加载收藏列表...</p>';
+                fetch('/api/songs/favorites')
+                    .then(response => response.json())
+                    .then(data => renderSongList(data.songs))
+                    .catch(error => {
+                        console.error('获取收藏失败:', error);
+                        songListContainer.innerHTML = '<p class="error-text">加载失败，请稍后再试。</p>';
+                    });
+            }
+
+            function renderSongList(songs) {
+                songListContainer.innerHTML = '';
+                if (songs && songs.length > 0) {
+                    songs.forEach(song => {
+                        const songElement = document.createElement('div');
+                        songElement.className = 'song-item';
+                        songElement.innerHTML = `
+                            <div class="song-item-content">
+                                <div class="song-details">
+                                    <h3 class="song-title">${song.title}</h3>
+                                    <p class="song-artist">${song.artist} - <span class="song-region">${song.region}</span></p>
+                                </div>
+                                <div class="song-controls">
+                                    ${song.audio_url && song.audio_url !== '#' ? `<audio controls class="audio-player" src="${song.audio_url}"></audio>` : `<span class="no-audio-text">暂无音频</span>`}
+                                    <button class="favorite-button" data-song-id="${song.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            ${song.description ? `<p class="song-description">${song.description}</p>` : ''}
+                        `;
+                        songListContainer.appendChild(songElement);
+                    });
+                } else {
+                    songListContainer.innerHTML = '<p class="empty-list-text">您还没有收藏任何歌曲。</p>';
+                }
+            }
+
+            songListContainer.addEventListener('click', function(event) {
+                const button = event.target.closest('.favorite-button');
+                if (!button) return;
+
+                const songId = button.dataset.songId;
+                fetch(`/api/song/toggle_favorite/${songId}`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && !data.song.is_favorite) {
+                            // 从收藏页面移除
+                            button.closest('.song-item').remove();
+                            // 检查是否列表已空
+                            if (!songListContainer.querySelector('.song-item')) {
+                                songListContainer.innerHTML = '<p class="empty-list-text">您还没有收藏任何歌曲。</p>';
+                            }
+                        }
+                    });
+            });
+
+            fetchAndDisplayFavorites();
+        });
+    </script>
+</body>
+</html>
+

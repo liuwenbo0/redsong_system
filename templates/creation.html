@@ -1,0 +1,411 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>谱·华章</title>
+    <script src="{{ url_for('static', filename='assets/js/tailwindcss.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/creation.css') }}">
+</head>
+<body class="page-body" style="background-image: url('static/images/bizhi6.jpg'); 
+                                background-size: cover;
+                                background-repeat: no-repeat;
+                                background-attachment: fixed;">
+
+    <div id="page-loader" class="page-loader">
+        <div class="spinner"></div>
+    </div>
+    <!-- 统一导航栏 -->
+    <div id="page-content">
+        <nav class="nav-bar">
+            <div class="nav-container">
+                <div class="nav-content">
+                    <div class="nav-logo-section">
+                    <a href="/" class="nav-logo-link">
+                        <img src="static/images/logo.png" alt="Logo" class="nav-logo-icon">
+                        数智红韵网
+                    </a>
+                    </div>
+                    <div class="nav-links-section">
+                        <a href="/circle" class="nav-link">听·山河</a>
+                        <a href="/making" class="nav-link">问·古今</a>
+                        <a href="/plaza" class="nav-link">阅·峥嵘</a>
+                        <a href="/creation" class="nav-link-active" aria-current="page">谱·华章</a>
+                    </div>
+                    <div class="nav-action-section">
+                        <a href="/favorites" class="nav-favorite-link" title="我的收藏">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        </a>
+                        <!-- (新增) 登录/注册/欢迎您 模块 -->
+                        <div id="auth-container" class="auth-container">
+                            <!-- JS会在这里填充“登录/注册”按钮或“欢迎您, [用户名]” -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="main-container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="content-card">
+                    <div class="page-header-wrapper">
+                        <h1 class="page-title">AI 赋能 · 谱写新时代红色旋律</h1>
+                    </div>
+
+                    <div class="creation-grid">
+                        
+                        <!-- 第一步：AI作词 -->
+                        <div class="creation-step">
+                            <div class="step-header">
+                                <span class="step-number">01</span>
+                                <h2 class="step-title">填词 · 抒怀</h2>
+                            </div>
+                            <p class="step-description">请输入创作主题（如：家乡巨变、英雄赞歌），AI 将为您生成押韵的红歌歌词。</p>
+                            <div class="input-group">
+                                <textarea id="lyrics-prompt" class="prompt-textarea" placeholder="在此输入您的灵感主题..."></textarea>
+                            </div>
+                            <button id="generate-lyrics-button" class="action-button">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                生成歌词
+                            </button>
+                        </div>
+
+                        <!-- 第二步：AI作曲 -->
+                        <div class="creation-step">
+                            <div class="step-header">
+                                <span class="step-number">02</span>
+                                <h2 class="step-title">谱曲 · 传唱</h2>
+                            </div>
+                            <p class="step-description">请确认下方歌词，选择一种曲风，AI 将为您谱写动人旋律。</p>
+                            
+                            <div class="style-selector-wrapper">
+                                <label for="song-style" class="style-label">曲风选择：</label>
+                                <div class="style-select-container">
+                                    <select id="song-style" class="style-select">
+                                        <option value="Classical">经典颂歌 (雄壮大气)</option>
+                                        <option value="Folk">深情民谣 (娓娓道来)</option>
+                                        <option value="Marching">进行曲 (激昂奋进)</option>
+                                        <option value="Chinese Traditional">民族风情 (悠扬婉转)</option>
+                                        <option value="Pop">新时代流行 (活力向上)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <textarea id="lyrics-output" class="lyrics-output-textarea" placeholder="AI生成的歌词将显示在这里..."></textarea>
+                            <button id="generate-song-button" class="action-button primary" disabled>生成旋律</button>
+                        </div>
+                    </div>
+
+                    <!-- 第三步：成果展示 -->
+                    <div id="song-result-area" class="song-result-area hidden">
+                        <div class="result-header">
+                            <h2 class="step-title" style="margin-bottom: 0;">作品 · 试听</h2>
+                            <div id="song-status" class="song-status"></div>
+                        </div>
+                        
+                        <div id="audio-player-wrapper" class="audio-player-wrapper hidden">
+                            <div class="vinyl-record">
+                                <div class="vinyl-center"></div>
+                            </div>
+                            <div class="player-controls">
+                                <p class="result-text">🎵 您的专属红歌已生成！</p>
+                                <audio id="audio-player" controls class="audio-player"></audio>
+                                
+                                <a id="download-btn" href="#" download="my_red_song.mp3" class="download-button" target="_blank">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    下载作品
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- (新增) 登录/注册 弹窗 -->
+    <div id="auth-modal-overlay" class="auth-modal-overlay hidden">
+        <div id="auth-modal-content" class="auth-modal-content">
+            <button id="auth-modal-close" class="auth-modal-close">&times;</button>
+            
+            <!-- 登录表单 -->
+            <div id="login-form">
+                <h2 class="auth-title">登录</h2>
+                <div id="login-error" class="auth-error hidden"></div>
+                <input type="text" id="login-username" placeholder="用户名" class="auth-input">
+                <input type="password" id="login-password" placeholder="密码" class="auth-input">
+                <button id="login-submit" class="auth-button">登录</button>
+                <p class="auth-toggle">没有账户？ <a href="#" id="show-register">立即注册</a></p>
+
+                <p class="auth-visitor-mode">
+                    <a href="#" id="visitor-mode-button">以游客模式浏览</a>
+                </p>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="register-form" class="hidden">
+                <h2 class="auth-title">注册</h2>
+                <div id="register-error" class="auth-error hidden"></div>
+                <input type="text" id="register-username" placeholder="设置用户名（不超过15个字符）" class="auth-input">
+                <input type="password" id="register-password" placeholder="设置密码（需包含字母和数字）" class="auth-input">
+                <input type="password" id="register-confirm-password" placeholder="确认密码" class="auth-input">
+                <button id="register-submit" class="auth-button">注册并登录</button>
+                <p class="auth-toggle">已有账户？ <a href="#" id="show-login">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+    <div id="ai-guide-mascot" class="ai-guide-mascot">
+        <!-- ⚠️ 使用你的数字人图片 -->
+        <img src="{{ url_for('static', filename='images/hongxiaoyun.png') }}" alt="红小韵" class="ai-guide-image"/>
+    </div>
+
+    <div id="ai-guide-modal" class="ai-guide-modal hidden">
+        <div class="guide-header flex justify-between items-center">
+            <span>红韵向导 AI</span>
+            <button id="guide-close" class="guide-close">&times;</button>
+        </div>
+        <div class="guide-messages" id="guide-messages">
+            <div class="guide-message guide-response">
+                <p>👋 <strong>您好！我是红小韵。</strong></p>
+                <p>这里是<b>谱·华章</b>，想创作一首属于自己的红歌吗？我可以为您提供灵感。</p>
+            </div>
+            <button class="guide-question-button" data-command="这个网站的功能是什么？">❓ 网站功能介绍</button>
+            <button class="guide-question-button" data-command="我想搜索红歌">🎵 我想搜索红歌</button>
+            <button class="guide-question-button" data-command="给我讲讲《东方红》的故事">📖 讲讲《东方红》的故事</button>
+        </div>
+        <div class="guide-input-area flex items-center gap-2">
+            <input type="text" id="guide-input" class="guide-input" placeholder="输入指令..." />
+            <button id="guide-send" class="guide-send-button">发送</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='assets/js/marked.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common_auth.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const lyricsPrompt = document.getElementById('lyrics-prompt');
+            const generateLyricsButton = document.getElementById('generate-lyrics-button');
+            const lyricsOutput = document.getElementById('lyrics-output');
+            const songStyleSelect = document.getElementById('song-style');
+            const generateSongButton = document.getElementById('generate-song-button');
+            
+            const songResultArea = document.getElementById('song-result-area');
+            const songStatus = document.getElementById('song-status');
+            const audioPlayerWrapper = document.getElementById('audio-player-wrapper');
+            const audioPlayer = document.getElementById('audio-player');
+            const downloadBtn = document.getElementById('download-btn');
+
+            let pollingInterval = null;
+            // --- AI Guide 逻辑 ---
+            const guideMascot = document.getElementById('ai-guide-mascot');
+            const guideModal = document.getElementById('ai-guide-modal');
+            const guideClose = document.getElementById('guide-close');
+            const guideMessages = document.getElementById('guide-messages');
+            const guideInput = document.getElementById('guide-input');
+            const guideSend = document.getElementById('guide-send');
+
+            // 注入 CSS
+            const styleSheet = document.createElement("style");
+            styleSheet.type = "text/css";
+            styleSheet.innerText = `
+                .spinner-small { width: 1rem; height: 1rem; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `;
+            document.head.appendChild(styleSheet);
+
+            function addGuideMessage(text, isUser = false, isMarkdown = false) {
+                const msg = document.createElement('div');
+                msg.className = 'guide-message';
+                if (isUser) {
+                    msg.innerHTML = `<p style="text-align: right; font-style: italic; color: #666;">我：${text}</p>`;
+                } else {
+                    msg.className += ' guide-response';
+                    const contentDiv = document.createElement('div');
+                    if (isMarkdown && typeof marked !== 'undefined') {
+                        contentDiv.innerHTML = marked.parse(text);
+                    } else {
+                        contentDiv.innerHTML = `<p>${text}</p>`;
+                    }
+                    msg.appendChild(contentDiv);
+                }
+                guideMessages.appendChild(msg);
+                guideMessages.scrollTop = guideMessages.scrollHeight;
+                return msg;
+            }
+            
+            function handleGuideCommand(query) {
+                if (!query) return;
+                guideInput.value = '';
+                guideSend.disabled = true;
+                addGuideMessage(query, true);
+                const thinkingMsg = addGuideMessage("红小韵正在查阅资料...", false);
+                thinkingMsg.innerHTML = `<p><div class="spinner-small" style="width:1rem; height:1rem; border-color:#fee2e2; border-top-color:var(--theme-red); margin: 0 0.5rem; display: inline-block;"></div> 红小韵正在查阅资料...</p>`;
+
+                fetch('/api/guide/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    thinkingMsg.remove();
+                    if (data.action === 'navigate') {
+                        const introText = data.intro_message || `好的，为您跳转到：**${data.label}**`;
+                        addGuideMessage(introText, false, true);
+                        const actionLink = document.createElement('a');
+                        actionLink.className = 'guide-action-link';
+                        actionLink.href = data.path;
+                         actionLink.textContent = `👉 点击前往 ${data.label.replace('前往', '').replace('开始', '').replace('进入', '').replace('查看', '')}`;
+                        
+                        const linkMsg = document.createElement('div');
+                        linkMsg.className = 'guide-message';
+                        linkMsg.appendChild(actionLink);
+                        guideMessages.appendChild(linkMsg);
+
+                    } else if (data.action === 'text_response') {
+                        // 文本回复也支持 Markdown
+                        addGuideMessage(data.message, false, true);
+                    } else {
+                        addGuideMessage("抱歉，我没听懂您的指令。", false);
+                    }
+                })
+                .catch(error => {
+                    console.error("AI Guide Error:", error);
+                    thinkingMsg.remove();
+                    addGuideMessage("红小韵好像断线了，请稍后再试。", false);
+                })
+                .finally(() => {
+                    guideSend.disabled = false;
+                    guideMessages.scrollTop = guideMessages.scrollHeight;
+                });
+            }
+            guideMascot.addEventListener('click', () => { guideModal.classList.toggle('hidden'); if (!guideModal.classList.contains('hidden')) { guideMessages.scrollTop = guideMessages.scrollHeight; guideInput.focus(); } });
+            guideClose.addEventListener('click', () => guideModal.classList.add('hidden'));
+            document.querySelectorAll('.guide-question-button').forEach(button => { button.addEventListener('click', (e) => handleGuideCommand(e.target.dataset.command)); });
+            guideSend.addEventListener('click', () => handleGuideCommand(guideInput.value.trim()));
+            guideInput.addEventListener('keypress', (e) => (e.key === 'Enter') && handleGuideCommand(guideInput.value.trim()));
+            
+
+            // --- 第一步：作词逻辑 ---
+            generateLyricsButton.addEventListener('click', function() {
+                const prompt = lyricsPrompt.value.trim();
+                if (!prompt) {
+                    alert('请输入作词主题！');
+                    return;
+                }
+
+                this.disabled = true;
+                this.textContent = '正在生成歌词...';
+                lyricsOutput.value = '';
+
+                fetch('api/create/lyrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    lyricsOutput.value = data.lyrics || '生成失败，请重试。';
+                    if (data.lyrics && !data.lyrics.startsWith('错误')) {
+                        generateSongButton.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('作词API请求失败:', error);
+                    lyricsOutput.value = '作词服务异常，请稍后再试。';
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.textContent = '生成歌词';
+                });
+            });
+
+            // --- 第二步：作曲逻辑 ---
+            generateSongButton.addEventListener('click', function() {
+                const lyrics = lyricsOutput.value.trim();
+                if (!lyrics) {
+                    alert('歌词不能为空！');
+                    return;
+                }
+                
+                const selectedStyle = songStyleSelect.value;
+
+                if (pollingInterval) clearInterval(pollingInterval);
+                audioPlayerWrapper.classList.add('hidden');
+                songResultArea.classList.remove('hidden');
+                songStatus.innerHTML = '<div class="spinner"></div><p>已提交作曲任务，正在初始化...</p>';
+                this.disabled = true;
+                this.textContent = '正在生成中...';
+                
+                // 1. 开始作曲任务
+                fetch('api/create/song/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // 发送独立的歌词和风格字段
+                    body: JSON.stringify({ lyrics: lyrics, style: selectedStyle })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    startPolling(data.task_id);
+                })
+                .catch(error => {
+                    console.error('开始作曲失败:', error);
+                    songStatus.innerHTML = `<p class="error">作曲任务启动失败: ${error.message}</p>`;
+                    resetSongButton();
+                });
+            });
+
+            // 3. 轮询函数
+            function startPolling(taskId) {
+                pollingInterval = setInterval(() => {
+                    fetch(`api/create/song/status/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'SUCCESS') {
+                            clearInterval(pollingInterval);
+                            songStatus.innerHTML = '<p class="success">🎉 生成成功！</p>';
+                            audioPlayer.src = data.audio_url;
+                            downloadBtn.href = data.audio_url;
+                            audioPlayerWrapper.classList.remove('hidden');
+                            resetSongButton();
+                        } else if (data.status === 'FAILURE') {
+                            clearInterval(pollingInterval);
+                            songStatus.innerHTML = `<p class="error">生成失败: ${data.error || '未知错误'}</p>`;
+                            resetSongButton();
+                        } else {
+                            songStatus.innerHTML = '<div class="spinner"></div><p>AI正在谱曲中，这可能需要1-2分钟，请保持页面开启...</p>';
+                        }
+                    })
+                    .catch(error => {
+                        clearInterval(pollingInterval);
+                        console.error('轮询状态失败:', error);
+                        songStatus.innerHTML = `<p class="error">查询任务状态时出错，请稍后重试。</p>`;
+                        resetSongButton();
+                    });
+                }, 5000); // 每5秒查询一次
+            }
+
+            function resetSongButton() {
+                generateSongButton.disabled = false;
+                generateSongButton.textContent = '生成旋律';
+            }
+
+        });
+    </script>
+</body>
+</html>
+
+

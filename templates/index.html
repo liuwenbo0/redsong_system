@@ -1,0 +1,352 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数智红韵网 - 主页</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/home.css') }}">
+    <style>
+        /* 💥 特殊覆盖：主页立牌在左下角，且更大 */
+        .ai-guide-mascot {
+            left: 4rem !important;
+            right: auto !important;
+            bottom: 0 !important;
+            width: 250px !important;
+            height: 360px !important;
+            z-index: 1000;
+            
+            background: rgba(0,0,0,0.08); /* 柔和透明灰色背景 */
+            border-radius: 12px;          /* 让背景更柔和 */
+            padding: 6px;                 /* 给图像一点内边距，让背景显得自然 */
+        }
+        
+        /* 调整对话气泡位置，对齐左下角，并稍微抬高以适应更大的立牌 */
+        .ai-guide-modal {
+            left: 5rem !important;
+            right: auto !important;
+            bottom: 370px !important; /* 位于大立牌上方 */
+        }
+        
+        /* 气泡小箭头改为指向左下方 */
+        .ai-guide-modal::after {
+            right: auto;
+            left: 100px;
+        }
+
+        /* Markdown 渲染样式微调 */
+        .guide-message p { margin-bottom: 0.5em; }
+        .guide-message p:last-child { margin-bottom: 0; }
+        .guide-message strong { color: #C12C1F; font-weight: 700; }
+        .guide-message ul { list-style-type: disc; padding-left: 1.2em; margin-bottom: 0.5em; }
+    </style>
+</head>
+<body class="page-body">
+    <div id="page-loader" class="page-loader">
+        <div class="spinner"></div>
+    </div>
+    <div class="scroll-container">
+        <!-- Section 1: 全屏海报 -->
+        <section id="hero" class="hero">
+            <div class="hero__overlay"></div>
+            <img src="static/images/bizhi1.jpg" class="hero__background-image" alt="背景海报"/>
+            
+            <div class="hero__content">
+                <h1 class="hero__title">数智红韵网</h1>
+                <p class="hero__subtitle">
+                    AI赋新声，红歌活起来。一个融合了文化展示、学习与AI创作的交互式平台。
+                </p>
+                
+                <div class="hero__nav-buttons">
+                    <a href="#circle" class="hero__nav-button">听·山河</a>
+                    <a href="#making" class="hero__nav-button">问·古今</a>
+                    <a href="#plaza" class="hero__nav-button">阅·峥嵘</a>
+                    <a href="#creation" class="hero__nav-button">谱·华章</a>
+                </div>
+            </div>
+
+            <a href="/favorites" class="hero__favorite-link" title="我的收藏">
+                <svg class="hero__favorite-icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+            </a>
+
+            <!-- 更新：右上角操作区域 -->
+             <div class="hero__actions">
+                <!-- 新增：登录/用户入口 -->
+                <div id="auth-container" class="auth-container">
+                    <!-- JS会在这里填充“登录/注册”按钮或“欢迎您, [用户名]” -->
+                </div>
+             </div>
+        </section>
+
+        <!-- Section 2: 听·山河介绍 -->
+        <section id="circle" class="section">
+            <div class="section__overlay"></div>
+            <img src="static/images/bizhi2.png" class="section__background-image" alt="听·山河背景"/>
+            <div class="section__content">
+                <h2 class="section__title">听·山河</h2>
+                <p class="section__description">
+                    在交互式地图上，探索与发现来自祖国各地的经典红歌，聆听时代的声音。从白山黑水到南海之滨，每一寸土地都有它独特的红色旋律。
+                </p>
+                <a href="/circle" class="section__button">开始探索</a>
+            </div>
+        </section>
+
+        <!-- Section 3: 问·古今介绍 -->
+        <section id="making" class="section">
+            <div class="section__overlay"></div>
+            <img src="static/images/bizhi5.jpg" class="section__background-image" alt="问·古今背景"/>
+            <div class="section__content">
+                <h2 class="section__title">问·古今</h2>
+                <p class="section__description">
+                    与我们的红歌文化专家AI深度对话，探寻每一首歌曲背后鲜为人知的人物与故事。了解创作背景，感受艺术家的心路历程。
+                </p>
+                <a href="/making" class="section__button">开启对话</a>
+            </div>
+        </section>
+
+        <!-- Section 4: 阅·峥嵘介绍 -->
+        <section id="plaza" class="section">
+            <div class="section__overlay"></div>
+            <img src="static/images/bizhi7.jpg" class="section__background-image" alt="阅·峥嵘背景"/>
+            <div class="section__content">
+                <h2 class="section__title">阅·峥嵘</h2>
+                <p class="section__description">
+                    这里是学习和回顾的殿堂。通过精心制作的红歌微课与史实时间轴，让您沉浸式地学习与回顾那段波澜壮阔的革命历史。
+                </p>
+                <a href="/plaza" class="section__button">进入学习</a>
+            </div>
+        </section>
+
+        <!-- Section 5: 谱·华章介绍 -->
+        <section id="creation" class="section">
+            <div class="section__overlay"></div>
+            <img src="static/images/bizhi8.jpg" class="section__background-image" alt="谱·华章背景"/>
+            <div class="section__content">
+                <h2 class="section__title">谱·华章</h2>
+                <p class="section__description">
+                    释放你的创作灵感！在这里，您可以利用前沿的AI技术，创作属于您自己的红歌歌词与旋律，将心中的激情与赞歌化为永恒的作品。
+                </p>
+                <a href="/creation" class="section__button">开始创作</a>
+            </div>
+        </section>
+
+        <!-- 返回顶部按钮 -->
+        <a id="back-to-top" href="#hero" class="back-to-top-button">
+            <svg xmlns="http://www.w3.org/2000/svg" class="back-to-top-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+            </svg>
+        </a>
+
+        <!-- 新增：全站通用的登录/注册弹窗 -->
+        <div id="auth-modal-overlay" class="auth-modal-overlay hidden">
+            <div id="auth-modal-content" class="auth-modal-content">
+                <button id="auth-modal-close" class="auth-modal-close">&times;</button>
+                
+                <!-- 登录表单 -->
+                <div id="login-form">
+                    <h2 class="auth-title">登录</h2>
+                    <div id="login-error" class="auth-error hidden"></div>
+                    <input type="text" id="login-username" placeholder="用户名" class="auth-input">
+                    <input type="password" id="login-password" placeholder="密码" class="auth-input">
+                    <button id="login-submit" class="auth-button">登录</button>
+                    <p class="auth-toggle">没有账户？ <a href="#" id="show-register">立即注册</a></p>
+                    <p class="auth-visitor-mode">
+                        <a href="#" id="visitor-mode-button">以游客模式浏览</a>
+                    </p>
+                </div>
+
+                <!-- 注册表单 -->
+                <div id="register-form" class="hidden">
+                    <h2 class="auth-title">注册</h2>
+                    <div id="register-error" class="auth-error hidden"></div>
+                    <input type="text" id="register-username" placeholder="设置用户名（不超过15个字符）" class="auth-input">
+                    <input type="password" id="register-password" placeholder="设置密码（需包含字母和数字）" class="auth-input">
+                    <input type="password" id="register-confirm-password" placeholder="确认密码" class="auth-input">
+                    <button id="register-submit" class="auth-button">注册并登录</button>
+                    <p class="auth-toggle">已有账户？ <a href="#" id="show-login">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+        <div id="ai-guide-mascot" class="ai-guide-mascot">
+            <img src="{{ url_for('static', filename='images/hongxiaoyun.png') }}" alt="红小韵" class="ai-guide-image"/>
+        </div>
+
+        <div id="ai-guide-modal" class="ai-guide-modal hidden">
+            <div class="guide-header flex justify-between items-center">
+                <span>红韵向导 AI</span>
+                <button id="guide-close" class="guide-close">&times;</button>
+            </div>
+            <div class="guide-messages" id="guide-messages">
+                <div class="guide-message guide-response">
+                    <p>👋 <strong>您好！我是红小韵。</strong></p>
+                    <p>欢迎来到数智红韵网！无论是听歌、学史还是创作，我都能带您去。请问想了解哪个板块？</p>
+                </div>
+                <!-- 预设指令 -->
+                 <button class="guide-question-button" data-command="这个网站的功能是什么？">❓ 网站功能介绍</button>
+                <button class="guide-question-button" data-command="我想搜索红歌">🎵 我想搜索红歌</button>
+                <button class="guide-question-button" data-command="给我讲讲《东方红》的故事">📖 讲讲《东方红》的故事</button>
+            </div>
+            <div class="guide-input-area flex items-center gap-2">
+                <input type="text" id="guide-input" class="guide-input" placeholder="输入指令..." />
+                <button id="guide-send" class="guide-send-button">发送</button>
+            </div>
+        </div>
+
+        <script src="{{ url_for('static', filename='assets/js/marked.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='assets/js/common.js') }}"></script>
+        <script src="{{ url_for('static', filename='assets/js/common_auth.js') }}"></script>
+        <script>
+            // 控制“返回顶部”按钮的显示与隐藏
+            const backToTopButton = document.getElementById('back-to-top');
+            const heroSection = document.getElementById('hero');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    // 当hero section完全不可见时，显示按钮
+                    if (!entry.isIntersecting) {
+                        backToTopButton.classList.add('is-visible');
+                    } else {
+                        backToTopButton.classList.remove('is-visible');
+                    }
+                });
+            }, { threshold: 0 }); 
+
+            observer.observe(heroSection);
+            document.addEventListener('DOMContentLoaded', function() {
+                const backToTopButton = document.getElementById('back-to-top');
+                const scrollContainer = document.querySelector('.scroll-container');
+                let hideTimeout = null;
+                // --- AI Guide 逻辑 ---
+            const guideMascot = document.getElementById('ai-guide-mascot');
+            const guideModal = document.getElementById('ai-guide-modal');
+            const guideClose = document.getElementById('guide-close');
+            const guideMessages = document.getElementById('guide-messages');
+            const guideInput = document.getElementById('guide-input');
+            const guideSend = document.getElementById('guide-send');
+
+            // 注入 CSS
+            const styleSheet = document.createElement("style");
+            styleSheet.type = "text/css";
+            styleSheet.innerText = `
+                .spinner-small { width: 1rem; height: 1rem; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `;
+            document.head.appendChild(styleSheet);
+
+            function addGuideMessage(text, isUser = false, isMarkdown = false) {
+                const msg = document.createElement('div');
+                msg.className = 'guide-message';
+                if (isUser) {
+                    msg.innerHTML = `<p style="text-align: right; font-style: italic; color: #666;">我：${text}</p>`;
+                } else {
+                    msg.className += ' guide-response';
+                    const contentDiv = document.createElement('div');
+                    if (isMarkdown && typeof marked !== 'undefined') {
+                        contentDiv.innerHTML = marked.parse(text);
+                    } else {
+                        contentDiv.innerHTML = `<p>${text}</p>`;
+                    }
+                    msg.appendChild(contentDiv);
+                }
+                guideMessages.appendChild(msg);
+                guideMessages.scrollTop = guideMessages.scrollHeight;
+                return msg;
+            }
+            
+            function handleGuideCommand(query) {
+                if (!query) return;
+                guideInput.value = '';
+                guideSend.disabled = true;
+                addGuideMessage(query, true);
+                const thinkingMsg = addGuideMessage("红小韵正在查阅资料...", false);
+                thinkingMsg.innerHTML = `<p><div class="spinner-small" style="width:1rem; height:1rem; border-color:#fee2e2; border-top-color:var(--theme-red); margin: 0 0.5rem; display: inline-block;"></div> 红小韵正在查阅资料...</p>`;
+
+                fetch('/api/guide/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    thinkingMsg.remove();
+                    if (data.action === 'navigate') {
+                        const introText = data.intro_message || `好的，为您跳转到：**${data.label}**`;
+                        addGuideMessage(introText, false, true);
+                        const actionLink = document.createElement('a');
+                        actionLink.className = 'guide-action-link';
+                        actionLink.href = data.path;
+                         actionLink.textContent = `👉 点击前往 ${data.label.replace('前往', '').replace('开始', '').replace('进入', '').replace('查看', '')}`;
+                        
+                        const linkMsg = document.createElement('div');
+                        linkMsg.className = 'guide-message';
+                        linkMsg.appendChild(actionLink);
+                        guideMessages.appendChild(linkMsg);
+
+                    } else if (data.action === 'text_response') {
+                        // 文本回复也支持 Markdown
+                        addGuideMessage(data.message, false, true);
+                    } else {
+                        addGuideMessage("抱歉，我没听懂您的指令。", false);
+                    }
+                })
+                .catch(error => {
+                    console.error("AI Guide Error:", error);
+                    thinkingMsg.remove();
+                    addGuideMessage("红小韵好像断线了，请稍后再试。", false);
+                })
+                .finally(() => {
+                    guideSend.disabled = false;
+                    guideMessages.scrollTop = guideMessages.scrollHeight;
+                });
+            }
+            guideMascot.addEventListener('click', () => { guideModal.classList.toggle('hidden'); if (!guideModal.classList.contains('hidden')) { guideMessages.scrollTop = guideMessages.scrollHeight; guideInput.focus(); } });
+            guideClose.addEventListener('click', () => guideModal.classList.add('hidden'));
+            document.querySelectorAll('.guide-question-button').forEach(button => { button.addEventListener('click', (e) => handleGuideCommand(e.target.dataset.command)); });
+            guideSend.addEventListener('click', () => handleGuideCommand(guideInput.value.trim()));
+            guideInput.addEventListener('keypress', (e) => (e.key === 'Enter') && handleGuideCommand(guideInput.value.trim()));
+
+
+                if(scrollContainer) {
+                    scrollContainer.addEventListener('scroll', function() {
+                        if (scrollContainer.scrollTop > window.innerHeight / 2) {
+                            if (hideTimeout) {
+                                clearTimeout(hideTimeout);
+                                hideTimeout = null;
+                            }
+                            backToTopButton.classList.remove('hidden', 'fade-out');
+                        } else {
+                            backToTopButton.classList.add('fade-out');
+                            hideTimeout = setTimeout(() => {
+                                backToTopButton.classList.add('hidden');
+                            }, 300);
+                        }
+                    });
+                }
+
+                // 平滑滚动到锚点的新逻辑
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    anchor.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        
+                        const targetId = this.getAttribute('href');
+                        const targetElement = document.querySelector(targetId);
+                        
+                        if (targetElement && scrollContainer) {
+                            const targetPosition = targetElement.offsetTop;
+                            
+                            scrollContainer.scrollTo({
+                                top: targetPosition,
+                                behavior: 'smooth'
+                            });
+                        }
+                    });
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>
+

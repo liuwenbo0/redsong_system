@@ -1,0 +1,273 @@
+/*
+  主页专属样式 (home.css)
+*/
+@font-face {
+    font-family: "liukaijianti";
+    src: url("/static/fonts/liukaijianti.ttf") format("truetype");
+}
+
+.page-body {
+  margin: 0;
+  color: #f3f4f6;
+}
+
+/* --- 全屏滚动容器 --- */
+.scroll-container {
+  height: 100vh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+}
+
+/* --- 通用 Section 样式 --- */
+.section {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  overflow: hidden;
+}
+.section__overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+.section__background-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.section__content {
+  position: relative;
+  z-index: 2;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+.section__title {
+  font-size: 2.5rem;
+  line-height: 2.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: "liukaijianti", sans-serif;
+}
+.section__description {
+  margin-top: 1rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  color: #d1d5db;
+}
+.section__button {
+  display: inline-block;
+  margin-top: 2rem;
+  background-color: #dc2626;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.25rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  font-family: "liukaijianti", sans-serif;
+}
+.section__button:hover {
+  background-color: #b91c1c;
+  transform: scale(1.05);
+}
+
+/* --- 顶部 Hero 海报 --- */
+.hero {
+  position: relative;
+  height: 95vh;
+  /* width: 100%; */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  color: #ffffff;
+  scroll-snap-align: start;
+  overflow: hidden;
+}
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  z-index: 1;
+}
+.hero__background-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.hero__content {
+  position: relative;
+  z-index: 2;
+}
+.hero__title {
+  /* 选项 1: 马善政体 (当前) - 风格稳重 */
+  font-family: 'Ma Shan Zheng', cursive;
+
+  /* 选项 2: 龙藏体 - 风格洒脱、草书感强 */
+  /* font-family: 'Long Cang', cursive; */
+
+  /* 选项 3: 芝麻街体 - 风格随性、手写感强 */
+  /* font-family: 'Zhi Mang Xing', cursive; */
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+@media (min-width: 768px) {
+  .hero__title {
+    font-size: 4.5rem;
+  }
+}
+.hero__subtitle {
+  margin-top: 1rem;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 1.25rem;
+  color: #d1d5db;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+@media (min-width: 768px) {
+  .hero__subtitle {
+    font-size: 1.5rem;
+  }
+}
+.hero__nav-buttons {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  font-family: "liukaijianti", sans-serif;
+}
+.hero__nav-button {
+  background-color: rgba(220, 38, 38, 0.8);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.25rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  transform: scale(1);
+}
+.hero__nav-button:hover {
+  background-color: rgba(239, 68, 68, 0.9);
+  transform: scale(1.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  filter: brightness(1.1);
+}
+.hero__favorite-link {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  color: #ffffff;
+  z-index: 20;
+  transition: transform 0.3s;
+}
+.hero__favorite-link:hover {
+  color: #fecaca;
+  transform: scale(1.25);
+}
+.hero__favorite-icon {
+  height: 2rem;
+  width: 2rem;
+}
+
+/* --- (新增/更新) 右上角操作区 --- */
+.hero__actions {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem; /* 增大间距 */
+}
+
+/* .hero__favorite-link {
+    color: white;
+    transition: transform 0.3s, color 0.3s;
+}
+.hero__favorite-link:hover {
+    color: #f87171;
+    transform: scale(1.2);
+} */
+.hero__icon {
+    height: 2rem;
+    width: 2rem;
+}
+
+/* 它会复用 common.css 里的 .auth-container, .nav-login-button 等 */
+.hero__actions .nav-login-button,
+.hero__actions .nav-user-info,
+.hero__actions .nav-logout-button {
+    color: #ffffff; /* 确保在深色海报上是白色 */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.hero__actions .nav-login-button:hover {
+    color: #f87171; /* 悬浮时变红 */
+}
+.hero__actions .nav-logout-button:hover {
+    color: #f87171; /* 悬浮时变红 */
+}
+.hero__actions .nav-login-icon {
+    height: 2rem;
+    width: 2rem;
+}
+
+
+/* --- 返回顶部按钮 --- */
+.back-to-top-button {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: rgba(220, 38, 38, 0.8);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  padding: 0.75rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease-in-out;
+  transform: translateY(0);
+  /* 更新：使用一个非常高的 z-index 确保按钮在最顶层 */
+  z-index: 9999; 
+}
+.back-to-top-button:hover {
+  background-color: #b91c1c;
+  transform: scale(1.1);
+}
+.back-to-top-icon {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(1rem);
+}
+/* 用于平滑隐藏的动画 */
+.fade-out {
+    opacity: 0 !important;
+    transform: translateY(1rem) !important;
+}
+
