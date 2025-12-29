@@ -27,6 +27,7 @@ from database import (
     register_commands,
     DataService,
     User,
+    init_db,
 )
 import re  # (新增) 导入正则表达式
 from dotenv import load_dotenv
@@ -110,6 +111,7 @@ def create_app(config_class=Config):
     # 自动创建数据库表（在应用上下文中）
     with app.app_context():
         db.create_all()
+        init_db()
         logger.info("数据库表已自动创建/检查")
 
     return app
@@ -296,7 +298,12 @@ def register_routes(app):
         d = request.json
         kie_key = app.config.get("KIE_API_KEY")
         if not kie_key:
-            return jsonify({"error": "Key未配置"}), 500
+            logger.warning(
+                "Kie API Key is missing. Please configure KIE_API_KEY in .env."
+            )
+            return jsonify(
+                {"error": "Kie API Key未配置，请联系管理员或检查.env文件"}
+            ), 500
         try:
             p = {
                 "prompt": d.get("lyrics"),
@@ -307,23 +314,65 @@ def register_routes(app):
                 "model": "V3_5",
                 "callBackUrl": "https://redsong.bond/api/kie/callback",
             }
-            r = requests.post(
-                "https://api.kie.ai/api/v1/generate",
-                headers={
-                    "Authorization": f"Bearer {kie_key}",
-                    "Content-Type": "application/json",
-                },
-                json=p,
-                timeout=20,
-            )
+
+            api_host = os.getenv("KIE_API_HOST", "https://api.kie.ai")
+            api_url = f"{api_host.rstrip('/')}/api/v1/generate"
+            is_relay = "api.kie.ai" not in api_host
+
+            try:
+                r = requests.post(
+                    api_url,
+                    headers={
+                        "Authorization": f"Bearer {kie_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=p,
+                    timeout=20,
+                )
+            except requests.exceptions.ConnectionError:
+                err_msg = f"连接失败: 无法访问{'中转服务器' if is_relay else 'Kie接口'}({api_host})，请检查网络或中转服务是否开启。"
+                logger.error(err_msg)
+                return jsonify({"error": err_msg}), 502
+            except requests.exceptions.Timeout:
+                err_msg = "请求超时: 服务器响应过慢，请稍后再试。"
+                logger.error(err_msg)
+                return jsonify({"error": err_msg}), 504
+
             if r.status_code == 200:
                 rj = r.json()
-                if rj.get("code") == 200:
+                code = rj.get("code")
+                if code == 200:
                     return jsonify(
                         {"task_id": rj["data"].get("taskId"), "provider": "kie"}
                     )
-            return jsonify({"error": "服务异常"}), 500
+
+                msg = rj.get("msg", "")
+                logger.error(f"Kie API Logic Error: {rj}")
+
+                # Check for IP whitelist error
+                if code == 401 or "whitelist" in msg.lower():
+                    try:
+                        my_ip = requests.get("https://api.ipify.org", timeout=2).text
+                    except:
+                        my_ip = "无法自动获取"
+
+                    target = "中转服务器IP" if is_relay else "本地IP"
+                    err_msg = f"API权限错误: {target}不在白名单。当前检测到IP: {my_ip}。请在Kie后台添加{'中转机IP' if is_relay else ''}。"
+                    logger.error(err_msg)
+                    return jsonify({"error": err_msg}), 500
+
+                return jsonify({"error": f"Kie服务错误: {msg}"}), 500
+
+            # 处理中转服务器可能返回的 502/503/504
+            if r.status_code in [502, 503, 504] and is_relay:
+                err_msg = f"中转服务异常({r.status_code}): 请检查服务器 {api_host} 的 Nginx 配置是否正确。"
+                logger.error(err_msg)
+                return jsonify({"error": err_msg}), r.status_code
+
+            logger.error(f"Kie API HTTP Error: {r.status_code} - {r.text}")
+            return jsonify({"error": f"外部服务HTTP错误: {r.status_code}"}), 500
         except Exception as e:
+            logger.exception("Unexpected error in api_create_song_start")
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/kie/callback", methods=["POST"])
@@ -466,4 +515,3 @@ def register_routes(app):
 app = create_app()
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=app.config.get("PORT", 5000))
-
