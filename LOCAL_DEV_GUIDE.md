@@ -1,8 +1,61 @@
 # 本地开发快速指南
 
-## 使用 ngrok 进行本地开发
+## 方式 1: 使用 Docker 开发 (推荐 - 一键配置)
 
-这是推荐的方式，可以让 Kie API 成功回调到你本地的开发服务器。
+这是最简单的开发方式，无需手动安装 ngrok 或 Python 环境，只需 Docker。
+
+### 快速开始
+
+#### 步骤 1: 配置 .env 文件
+
+在项目根目录创建 `.env` 文件，并添加你的配置：
+
+```bash
+# 必需配置
+OPENROUTER_API_KEY=sk-or-v1-xxxx
+KIE_API_KEY=xxxx
+FLASK_DEBUG=True
+
+# Ngrok 配置 (用于自动内网穿透)
+NGROK_AUTHTOKEN=2Roxxxxx  # 从 dashboard.ngrok.com 获取
+# NGROK_DOMAIN=my-domain.ngrok-free.app  # (可选) 如果你有固定域名
+```
+
+#### 步骤 2: 一键启动
+
+运行项目提供的启动脚本：
+
+```bash
+./start_docker.sh
+```
+
+脚本会自动：
+1. 构建 Docker 镜像
+2. 启动应用
+3. 启动内置的 ngrok
+4. 自动获取公网 URL 并配置到应用中
+
+你会看到如下输出：
+
+```
+============================================================
+ Ngrok 启动成功!
+ 公网地址 (Public URL): https://a1b2c3d4.ngrok-free.app
+ 回调地址 (Callback URL): https://a1b2c3d4.ngrok-free.app/api/kie/callback
+============================================================
+```
+
+现在你可以直接访问 `http://localhost:5000` 进行测试，回调功能已自动就绪！
+
+---
+
+## 方式 2: 本地手动开发 (传统方式)
+
+如果你不想使用 Docker，可以按照以下步骤手动配置环境。
+
+### 使用 ngrok 进行本地开发
+
+这是手动配置的方式，可以让 Kie API 成功回调到你本地的开发服务器。
 
 ### 快速开始（3步走）
 
