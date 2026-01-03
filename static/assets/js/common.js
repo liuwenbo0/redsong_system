@@ -3,65 +3,101 @@
  * 负责处理页面间的平滑过渡效果。
  */
 
-function checkAuthStatus() {
-    // 更新：使用绝对路径
-    fetch('/api/auth/status')
-        .then(response => {
-            if (!response.ok) { return { logged_in: false }; }
-            return response.json();
-        })
-        .then(data => {
-            const authContainer = document.getElementById('auth-container');
-            if (!authContainer) return;
+async function checkAuthStatus() {
+    try {
+        // 获取认证状态
+        const authResponse = await fetch('/api/auth/status');
+        const authData = authResponse.ok ? await authResponse.json() : { logged_in: false };
+        
+        const authContainer = document.getElementById('auth-container');
+        if (!authContainer) return;
 
-            if (data.logged_in) {
-                // 如果已登录，显示欢迎信息和登出按钮
-                authContainer.innerHTML = `
-                    <span class="nav-user-info">欢迎, ${data.username}</span>
-                    <a href="#" id="logout-button" class="nav-logout-button">登出</a>
-                `;
-                
-                const logoutButton = document.getElementById('logout-button');
-                if (logoutButton) {
-                    logoutButton.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        // 更新：使用绝对路径
-                        fetch(window.location.origin + '/api/auth/logout')
-                            .then(() => {
-                                window.location.href = '/'; 
-                            });
-                    });
+        if (authData.logged_in) {
+            // 已登录，获取用户统计信息（积分和徽章数量）
+            let totalScore = 0;
+            let quizScore = 0;
+            let unlockedCount = 0;
+            
+            try {
+                // 获取总积分和徽章数量
+                const statsResponse = await fetch('/api/achievements/stats');
+                if (statsResponse.ok) {
+                    const statsData = await statsResponse.json();
+                    totalScore = statsData.total_score || 0;
+                    unlockedCount = statsData.unlocked_count || 0;
                 }
-            } else {
-                // 游客模式下的用户名
-                if (sessionStorage.getItem('visitorModeActive') === 'true') {
-                    const visitorName = sessionStorage.getItem('visitorName') || '游客_0000';
-                    
-                    authContainer.innerHTML = `
+                
+                // 获取答题积分
+                const quizResponse = await fetch('/api/quiz/stats');
+                if (quizResponse.ok) {
+                    const quizData = await quizResponse.json();
+                    quizScore = quizData.total_score_from_quiz || 0;
+                }
+            } catch (e) {
+                console.log('获取用户统计信息失败:', e);
+            }
+
+            // 更新 user-points-display 显示总得分
+            const userPointsDisplay = document.getElementById('user-points');
+            if (userPointsDisplay) {
+                userPointsDisplay.textContent = totalScore;
+            }
+
+            // 显示用户信息、答题分数、徽章和登出按钮
+            authContainer.innerHTML = `
+                <div class="nav-user-wrapper">
+                    <span class="nav-user-info">欢迎, ${authData.username}</span>
+                    <a href="/quiz" class="nav-user-badge" title="答题积分">
+                        <svg class="nav-badge-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        <span class="nav-badge-points">${quizScore}</span>
+                    </a>
+                    <a href="/achievements" class="nav-user-badge" title="徽章">
+                        <svg class="nav-badge-icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="nav-badge-achievement">${unlockedCount}</span>
+                    </a>
+                    <a href="#" id="logout-button" class="nav-logout-button">登出</a>
+                </div>
+            `;
+            
+            const logoutButton = document.getElementById('logout-button');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    fetch('/api/auth/logout')
+                        .then(() => window.location.href = '/');
+                });
+            }
+        } else {
+            // 游客模式或未登录
+            if (sessionStorage.getItem('visitorModeActive') === 'true') {
+                const visitorName = sessionStorage.getItem('visitorName') || '游客_0000';
+                authContainer.innerHTML = `
+                    <div class="nav-user-wrapper">
                         <span class="nav-user-info">欢迎, ${visitorName}</span>
                         <a href="#" id="auth-modal-open" class="nav-login-link">登录</a>
-                    `;
-                } else {
-                    // 如果未登录，且不是游客模式，才显示登录图标
-                    authContainer.innerHTML = `
-                        <button id="auth-modal-open" class="nav-login-button" title="登录/注册">
-                            <svg class="nav-login-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                        </button>
-                    `;
-                }
-                // 如果未登录，显示登录/注册按钮
-                
+                    </div>
+                `;
+            } else {
+                authContainer.innerHTML = `
+                    <button id="auth-modal-open" class="nav-login-button" title="登录/注册">
+                        <svg class="nav-login-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </button>
+                `;
             }
-        })
-        .catch(err => {
-            console.error("无法获取认证状态:", err);
-            const authContainer = document.getElementById('auth-container');
-            if (authContainer) {
-                authContainer.innerHTML = `<span class="nav-user-info" style="color:red;">状态加载失败</span>`;
-            }
-        });
+        }
+    } catch (err) {
+        console.error("无法获取认证状态:", err);
+        const authContainer = document.getElementById('auth-container');
+        if (authContainer) {
+            authContainer.innerHTML = `<span class="nav-user-info" style="color:red;">状态加载失败</span>`;
+        }
+    }
 }
 
 window.addEventListener('DOMContentLoaded', () => {

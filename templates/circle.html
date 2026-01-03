@@ -39,15 +39,12 @@
                         <a href="/creation" class="nav-link">谱·华章</a>
                     </div>
                     <div class="nav-action-section">
-                        <div class="nav-favorite-wrapper">
-                            <a href="/favorites" class="nav-favorite-link" title="我的收藏">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                                </svg>
-                            </a>
-                            <!-- 指示器现在在包装器内部 -->
+                        <a href="/favorites" class="nav-favorite-link" title="我的收藏" id="nav-favorite-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
                             <span id="plus-one-indicator" class="plus-one-indicator">+1</span>
-                        </div>
+                        </a>
                         <!-- (新增) 登录/注册/欢迎您 模块 -->
                         <div id="auth-container" class="auth-container">
                             <!-- JS会在这里填充“登录/注册”按钮或“欢迎您, [用户名]” -->
@@ -484,7 +481,14 @@
                                         plusOneIndicator.classList.add('plus-one-anim');
                                         setTimeout(() => {
                                             plusOneIndicator.classList.remove('plus-one-anim');
-                                        }, 600); 
+                                        }, 600);
+                                    }
+                                    
+                                    // 检查是否解锁了新成就
+                                    if (data.newly_unlocked && data.newly_unlocked.length > 0) {
+                                        showAchievementNotification(data.newly_unlocked[0]);
+                                        // 刷新用户积分显示
+                                        checkAuthStatus();
                                     }
                                 } else {
                                     iconSvg.classList.remove('text-red-500');
@@ -494,6 +498,28 @@
                         });
                 }
             });
+
+            // 显示成就解锁通知
+            function showAchievementNotification(achievement) {
+                const notification = document.createElement('div');
+                notification.className = 'achievement-notification';
+                notification.innerHTML = `
+                    <div class="achievement-notification-content">
+                        <span class="achievement-notification-icon">${achievement.icon}</span>
+                        <div class="achievement-notification-text">
+                            <span class="achievement-notification-title">成就解锁！</span>
+                            <span class="achievement-notification-name">${achievement.name}</span>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(notification);
+                
+                // 3秒后自动消失
+                setTimeout(() => {
+                    notification.classList.add('achievement-notification-hide');
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
 
             // 初始加载全部歌曲
             performSearch();

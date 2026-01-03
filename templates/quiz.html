@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>红歌竞答 - 数智红韵网</title>
+    <script src="{{ url_for('static', filename='assets/js/tailwindcss.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/quiz.css') }}">
+</head>
+<body class="page-body" style="background-image: url('static/images/bizhi6.jpg'); 
+                                background-size: cover;
+                                background-repeat: no-repeat;
+                                background-attachment: fixed;">
+
+    <div id="page-loader" class="page-loader">
+        <div class="spinner"></div>
+    </div>
+    <!-- 统一导航栏 -->
+    <div id="page-content">
+        <nav class="nav-bar">
+            <div class="nav-container">
+                <div class="nav-content">
+                    <div class="nav-logo-section">
+                    <a href="/" class="nav-logo-link">
+                        <img src="static/images/logo.png" alt="Logo" class="nav-logo-icon">
+                        数智红韵网
+                    </a>
+                    </div>
+                    <div class="nav-links-section">
+                        <a href="/circle" class="nav-link">听·山河</a>
+                        <a href="/making" class="nav-link">问·古今</a>
+                        <a href="/plaza" class="nav-link">阅·峥嵘</a>
+                        <a href="/creation" class="nav-link">谱·华章</a>
+                    </div>
+                    <div class="nav-action-section">
+                        <div class="user-points-display">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="points-icon" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                            </svg>
+                            <span id="user-points">0</span>
+                        </div>
+                        <a href="/favorites" class="nav-favorite-link" title="我的收藏">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        </a>
+                        <div id="auth-container" class="auth-container">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="main-container">
+                <div class="content-card">
+                    <div class="page-header-wrapper">
+                        <h1 class="page-title">知史竞答 · 在问答中走近红色记忆</h1>
+                    </div>
+
+                    <!-- 用户统计 -->
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <span class="stat-label">已答对</span>
+                            <span class="stat-value" id="total-correct">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">正确率</span>
+                            <span class="stat-value" id="accuracy">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">答题积分</span>
+                            <span class="stat-value" id="quiz-score">0</span>
+                        </div>
+                    </div>
+
+                    <!-- 答题区域和排行榜布局 -->
+                    <div class="quiz-leaderboard-wrapper">
+                        <!-- 答题区域 -->
+                        <div id="quiz-container" class="quiz-container">
+                        <div id="start-screen" class="start-screen">
+                            <div class="start-icon">🎮</div>
+                            <h2 class="start-title">准备好挑战了吗？</h2>
+                            <p class="start-desc">每轮将随机抽取5道题目，答对可获取积分哦！</p>
+                            <button id="start-quiz-btn" class="start-btn">开始答题</button>
+                        </div>
+
+                        <div id="question-screen" class="question-screen hidden">
+                            <div class="question-header">
+                                <span class="question-number" id="question-number">1/5</span>
+                                <span class="question-difficulty" id="question-difficulty">简单</span>
+                                <span class="question-points" id="question-points">+10分</span>
+                            </div>
+                            <div class="question-content">
+                                <h2 id="question-text" class="question-text"></h2>
+                            </div>
+                            <div class="options-grid" id="options-container">
+                            </div>
+                            <button id="next-question-btn" class="next-btn hidden">下一题</button>
+                        </div>
+
+                        <div id="result-screen" class="result-screen hidden">
+                            <div class="result-icon" id="result-icon">🎉</div>
+                            <h2 class="result-title" id="result-title">本轮结束</h2>
+                            <div class="result-stats">
+                                <p>答对：<strong id="result-correct">0</strong> / <span id="result-total">5</span></p>
+                                <p>获得积分：<strong id="result-points">0</strong></p>
+                            </div>
+                            <button id="restart-quiz-btn" class="restart-btn">再来一局</button>
+                            <button id="back-home-btn" class="back-home-btn">返回首页</button>
+                        </div>
+                        </div>
+
+                        <!-- 排行榜 -->
+                        <div class="leaderboard-section">
+                        <div class="section-header">
+                            <h2 class="section-title-withicon">
+                                <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                                红歌达人排行榜
+                            </h2>
+                        </div>
+                        <div id="leaderboard-list" class="leaderboard-list">
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 成就解锁弹窗 -->
+    <div id="achievement-modal-overlay" class="achievement-modal-overlay hidden">
+        <div class="achievement-modal-content">
+            <div class="achievement-animation">
+                <div class="achievement-icon" id="achievement-icon">🏆</div>
+                <div class="achievement-stars">
+                    <span>⭐</span><span>⭐</span><span>⭐</span>
+                </div>
+            </div>
+            <h2 class="achievement-title">恭喜解锁成就！</h2>
+            <p class="achievement-name" id="achievement-name">成就名称</p>
+            <p class="achievement-desc" id="achievement-desc">成就描述</p>
+            <p class="achievement-points">+<span id="achievement-points">100</span> 积分</p>
+            <button id="achievement-close-btn" class="achievement-close-btn">太棒了！</button>
+        </div>
+    </div>
+
+    <!-- 登录/注册弹窗 -->
+    <div id="auth-modal-overlay" class="auth-modal-overlay hidden">
+        <div id="auth-modal-content" class="auth-modal-content">
+            <button id="auth-modal-close" class="auth-modal-close">&times;</button>
+            <div id="login-form">
+                <h2 class="auth-title">登录</h2>
+                <div id="login-error" class="auth-error hidden"></div>
+                <input type="text" id="login-username" placeholder="用户名" class="auth-input">
+                <input type="password" id="login-password" placeholder="密码" class="auth-input">
+                <button id="login-submit" class="auth-button">登录</button>
+                <p class="auth-toggle">没有账户？ <a href="#" id="show-register">立即注册</a></p>
+                <p class="auth-visitor-mode">
+                    <a href="#" id="visitor-mode-button">以游客模式浏览</a>
+                </p>
+            </div>
+            <div id="register-form" class="hidden">
+                <h2 class="auth-title">注册</h2>
+                <div id="register-error" class="auth-error hidden"></div>
+                <input type="text" id="register-username" placeholder="设置用户名（不超过15个字符）" class="auth-input">
+                <input type="password" id="register-password" placeholder="设置密码（需包含字母和数字）" class="auth-input">
+                <input type="password" id="register-confirm-password" placeholder="确认密码" class="auth-input">
+                <button id="register-submit" class="auth-button">注册并登录</button>
+                <p class="auth-toggle">已有账户？ <a href="#" id="show-login">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-guide-mascot" class="ai-guide-mascot">
+        <img src="{{ url_for('static', filename='images/hongxiaoyun.png') }}" alt="红小韵" class="ai-guide-image"/>
+    </div>
+
+    <div id="ai-guide-modal" class="ai-guide-modal hidden">
+        <div class="guide-header flex justify-between items-center">
+            <span>红韵向导 AI</span>
+            <button id="guide-close" class="guide-close">&times;</button>
+        </div>
+        <div class="guide-messages" id="guide-messages">
+            <div class="guide-message guide-response">
+                <p>👋 <strong>您好！我是红小韵。</strong></p>
+                <p>这里是<b>红歌竞答</b>，通过答题来测试您的红歌知识吧！每答对一题都能获取积分哦。</p>
+            </div>
+            <button class="guide-question-button" data-command="怎么获得更多积分？">💡 怎么获得更多积分？</button>
+            <button class="guide-question-button" data-command="有哪些成就可以解锁？">🏅 有哪些成就可以解锁？</button>
+            <button class="guide-question-button" data-command="返回首页">🏠 返回首页</button>
+        </div>
+        <div class="guide-input-area flex items-center gap-2">
+            <input type="text" id="guide-input" class="guide-input" placeholder="输入指令..." />
+            <button id="guide-send" class="guide-send-button">发送</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='assets/js/marked.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/common_auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/quiz.js') }}"></script>
+</body>
+</html>

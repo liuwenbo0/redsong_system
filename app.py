@@ -510,6 +510,104 @@ def register_routes(app):
         return jsonify({"error": "不存在"}), 404
 
 
+    # --- 答题相关 API ---
+    @app.route("/quiz")
+    def quiz_page():
+        """答题页面"""
+        return render_template("quiz.html")
+
+    @app.route("/api/quiz/questions", methods=["GET"])
+    @login_required
+    def api_get_quiz_questions():
+        """获取随机题目"""
+        count = int(request.args.get("count", 5))
+        questions = data_service.get_random_quiz_questions(count)
+        return jsonify({
+            "questions": [{
+                "id": q.id,
+                "question": q.question,
+                "option_a": q.option_a,
+                "option_b": q.option_b,
+                "option_c": q.option_c,
+                "option_d": q.option_d,
+                "correct_answer": q.correct_answer,
+                "explanation": q.explanation,
+                "difficulty": q.difficulty,
+                "points": q.points
+            } for q in questions]
+        })
+
+    @app.route("/api/quiz/submit", methods=["POST"])
+    @login_required
+    def api_submit_quiz():
+        """提交答题"""
+        data = request.json
+        question_id = data.get("question_id")
+        user_answer = data.get("answer")
+        
+        if not question_id or not user_answer:
+            return jsonify({"error": "参数不完整"}), 400
+        
+        result = data_service.submit_quiz_answer(current_user, question_id, user_answer)
+        if result:
+            return jsonify({"success": True, **result})
+        return jsonify({"error": "题目不存在"}), 404
+
+    @app.route("/api/quiz/stats", methods=["GET"])
+    @login_required
+    def api_get_quiz_stats():
+        """获取用户答题统计"""
+        stats = data_service.get_user_quiz_stats(current_user.id)
+        return jsonify(stats)
+
+    @app.route("/api/quiz/leaderboard", methods=["GET"])
+    def api_get_quiz_leaderboard():
+        """获取答题积分排行榜"""
+        limit = int(request.args.get("limit", 10))
+        leaderboard = data_service.get_quiz_leaderboard(limit)
+        return jsonify(leaderboard)
+
+    # --- 成就相关 API ---
+    @app.route("/achievements")
+    def achievements_page():
+        """成就页面"""
+        return render_template("achievements.html")
+
+    @app.route("/api/achievements", methods=["GET"])
+    @login_required
+    def api_get_achievements():
+        """获取用户成就列表"""
+        achievements = data_service.get_user_achievements(current_user)
+        return jsonify(achievements)
+
+    @app.route("/api/achievements/stats", methods=["GET"])
+    @login_required
+    def api_get_achievements_stats():
+        """获取用户成就统计（总积分和徽章数量）"""
+        achievements = data_service.get_user_achievements(current_user)
+        return jsonify({
+            "total_score": current_user.total_score,
+            "unlocked_count": achievements['unlocked_count']
+        })
+
+    @app.route("/api/achievements/check", methods=["POST"])
+    @login_required
+    def api_check_achievements():
+        """检查并解锁成就"""
+        newly_unlocked = data_service.check_and_unlock_achievements(current_user)
+        return jsonify({
+            "success": True,
+            "newly_unlocked": [a.to_dict() for a in newly_unlocked]
+        })
+
+    @app.route("/api/leaderboard", methods=["GET"])
+    def api_get_leaderboard():
+        """获取排行榜"""
+        limit = int(request.args.get("limit", 10))
+        leaderboard = data_service.get_leaderboard(limit)
+        return jsonify(leaderboard)
+
+
 # ==============================================================================
 # 5. 应用启动
 # ==============================================================================
