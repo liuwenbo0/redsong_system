@@ -18,3 +18,6 @@
 .idea/
 .cospec/
 .github/
+project.db
+server.log
+temp_tasks/
