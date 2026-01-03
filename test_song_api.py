@@ -29,7 +29,7 @@ def test_api():
             preexec_fn=os.setsid
         )
     
-    base_url = "http://localhost:5001"
+    base_url = "http://localhost:5000"
     
     try:
         if not wait_for_server(base_url):

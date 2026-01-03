@@ -67,6 +67,12 @@ class Config:
     # API 密钥配置
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
     KIE_API_KEY = os.getenv("KIE_API_KEY", "")
+    
+    # 回调URL配置 (用于接收Kie API生成的歌曲回调)
+    # 生产环境使用生产地址，本地开发可以使用ngrok等工具创建公网访问地址
+    CALLBACK_URL = os.getenv(
+        "CALLBACK_URL", "https://redsong.bond/api/kie/callback"
+    )
 
     # 生产环境配置
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
@@ -312,7 +318,7 @@ def register_routes(app):
                 "customMode": True,
                 "instrumental": False,
                 "model": "V3_5",
-                "callBackUrl": "https://redsong.bond/api/kie/callback",
+                "callBackUrl": app.config.get("CALLBACK_URL"),
             }
 
             api_host = os.getenv("KIE_API_HOST", "https://api.kie.ai")
