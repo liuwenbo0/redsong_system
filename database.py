@@ -25,6 +25,12 @@ post_likes = db.Table('post_likes',
     db.Column('post_id', db.Integer, db.ForeignKey('forum_post.id'), primary_key=True)
 )
 
+# 3. (新增) 用户成就关联表
+user_achievements = db.Table('user_achievements',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('achievement_id', db.Integer, db.ForeignKey('achievement.id'), primary_key=True)
+)
+
 # --- 模型定义 ---
 
 class User(UserMixin, db.Model):
@@ -32,12 +38,32 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(15), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     
+    # （注意：total_score 改为计算属性，不存储在数据库中）
+    @property
+    def total_score(self):
+        """计算用户总积分：答题积分 + 成就积分"""
+        # 答题积分
+        quiz_score = db.session.query(func.sum(QuizRecord.score_earned))\
+            .filter(QuizRecord.user_id == self.id)\
+            .scalar() or 0
+        
+        # 成就积分
+        achievement_score = db.session.query(func.sum(Achievement.points))\
+            .join(user_achievements, user_achievements.c.achievement_id == Achievement.id)\
+            .filter(user_achievements.c.user_id == self.id)\
+            .scalar() or 0
+        
+        return (quiz_score or 0) + (achievement_score or 0)
+    
     # 收藏关系
     favorites = db.relationship('Song', secondary=user_favorites, lazy='dynamic',
                                 backref=db.backref('favorited_by', lazy=True))
     # (新增) 点赞关系 - 用户赞过的帖子
     liked_posts = db.relationship('ForumPost', secondary=post_likes, lazy='dynamic',
                                   backref=db.backref('liked_by', lazy='dynamic'))
+    # 新增：用户成就关系
+    achievements = db.relationship('Achievement', secondary=user_achievements, lazy='dynamic',
+                                   backref=db.backref('earned_by', lazy='dynamic'))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -55,7 +81,7 @@ class ForumPost(db.Model):
     )
     
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    user = db.relationship('User', backref=db.backref('posts', lazy=True), overlaps="liked_posts,liked_by")
+    user = db.relationship('User', backref=db.backref('posts', lazy='dynamic', overlaps="liked_posts,liked_by"))
 
     def to_dict(self, current_user=None):
         # 计算点赞数
@@ -153,8 +179,64 @@ class ChatHistory(db.Model):
         }
 
 # ==============================================================================
+# (新增) 答题和成就相关模型
+# ==============================================================================
+
+class QuizQuestion(db.Model):
+    """竞答题目模型"""
+    id = db.Column(db.Integer, primary_key=True)
+    question = db.Column(db.Text, nullable=False)
+    option_a = db.Column(db.String(200), nullable=False)
+    option_b = db.Column(db.String(200), nullable=False)
+    option_c = db.Column(db.String(200), nullable=False)
+    option_d = db.Column(db.String(200), nullable=False)
+    correct_answer = db.Column(db.String(1), nullable=False)  # A/B/C/D
+    explanation = db.Column(db.Text, nullable=True)  # 解析
+    difficulty = db.Column(db.String(20), default='medium')  # easy/medium/hard
+    points = db.Column(db.Integer, default=10)  # 本题积分
+
+class QuizRecord(db.Model):
+    """答题记录模型"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('quiz_question.id'), nullable=False)
+    user_answer = db.Column(db.String(1), nullable=False)
+    is_correct = db.Column(db.Boolean, nullable=False)
+    score_earned = db.Column(db.Integer, default=0)
+    timestamp = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(CST)
+    )
+    
+    user = db.relationship('User', backref=db.backref('quiz_records', lazy=True))
+    question = db.relationship('QuizQuestion', backref=db.backref('records', lazy=True))
+
+class Achievement(db.Model):
+    """成就徽章模型"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    icon = db.Column(db.String(50), nullable=False)  # 图标代码/图标类名
+    category = db.Column(db.String(50), nullable=False)  # 类别：quiz/song/create/forum/total
+    condition_type = db.Column(db.String(50), nullable=False)  # 条件类型
+    condition_value = db.Column(db.Integer, nullable=False)  # 条件值
+    points = db.Column(db.Integer, default=100)  # 解锁成就获得的积分
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'icon': self.icon,
+            'category': self.category,
+            'condition_type': self.condition_type,
+            'condition_value': self.condition_value,
+            'points': self.points
+        }
+
+# ==============================================================================
 # (新增) 数据服务层 (Data Service)
-# =G=============================================================================
+# ==============================================================================
 class DataService:
     """封装所有数据库查询和操作"""
 
@@ -215,6 +297,12 @@ class DataService:
             db.session.commit()
             song_dict = song.to_dict()
             song_dict['is_favorite'] = True
+            
+            # 检查并解锁成就（新增）
+            newly_unlocked = self.check_and_unlock_achievements(user)
+            if newly_unlocked:
+                song_dict['newly_unlocked'] = [a.to_dict() for a in newly_unlocked]
+            
             return song_dict
 
     def get_articles(self) -> list:
@@ -258,7 +346,6 @@ class DataService:
             db.session.commit()
             return True
         return False
-
     def toggle_post_like(self, post_id, user):
         post = ForumPost.query.get(post_id)
         if not post: return None
@@ -272,6 +359,199 @@ class DataService:
             liked = True
         db.session.commit()
         return {'liked': liked, 'count': post.liked_by.count()}
+
+    # ==================== 答题相关方法 ====================
+
+    def get_random_quiz_questions(self, count=5):
+        """随机获取指定数量的题目"""
+        all_questions = QuizQuestion.query.all()
+        import random
+        return random.sample(all_questions, min(count, len(all_questions))) if all_questions else []
+
+    def submit_quiz_answer(self, user, question_id, user_answer):
+        """提交答题记录并计算得分"""
+        question = QuizQuestion.query.get(question_id)
+        if not question:
+            return None
+        
+        is_correct = user_answer.upper() == question.correct_answer.upper()
+        score_earned = question.points if is_correct else 0
+        
+        # 创建答题记录
+        record = QuizRecord(
+            user=user,
+            question=question,
+            user_answer=user_answer.upper(),
+            is_correct=is_correct,
+            score_earned=score_earned
+        )
+        db.session.add(record)
+        
+        # （注意：不需要手动增加用户积分，total_score 是计算属性）
+        # 积分会通过查询答题记录和成就自动计算
+        
+        db.session.commit()
+        
+        # 检查并解锁成就
+        self.check_and_unlock_achievements(user)
+        
+        return {
+            'success': True,
+            'is_correct': is_correct,
+            'score_earned': score_earned,
+            'correct_answer': question.correct_answer,
+            'explanation': question.explanation,
+            'current_total_score': user.total_score
+        }
+
+    def get_user_quiz_stats(self, user_id):
+        """获取用户答题统计"""
+        records = QuizRecord.query.filter_by(user_id=user_id).all()
+        total_questions = len(records)
+        correct_count = sum(1 for r in records if r.is_correct)
+        
+        return {
+            'total_answered': total_questions,
+            'total_correct': correct_count,
+            'accuracy': round(correct_count / total_questions * 100, 1) if total_questions > 0 else 0,
+            'total_score_from_quiz': sum(r.score_earned for r in records)
+        }
+
+    # ==================== 成就相关方法 ====================
+
+    def check_and_unlock_achievements(self, user):
+        """检查并解锁用户成就"""
+        achievements = Achievement.query.all()
+        newly_unlocked = []
+        
+        for ach in achievements:
+            # 检查是否已解锁
+            if ach in user.achievements:
+                continue
+            
+            # 根据成就类型检查条件
+            should_unlock = False
+            
+            if ach.condition_type == 'quiz_correct':
+                # 答对指定数量的题目
+                correct_count = QuizRecord.query.filter_by(
+                    user_id=user.id,
+                    is_correct=True
+                ).count()
+                if correct_count >= ach.condition_value:
+                    should_unlock = True
+                    
+            elif ach.condition_type == 'quiz_streak':
+                # 连续答对（这里简化处理，检查总正确率）
+                records = QuizRecord.query.filter_by(user_id=user.id).order_by(QuizRecord.timestamp).limit(ach.condition_value).all()
+                if all(r.is_correct for r in records) and len(records) >= ach.condition_value:
+                    should_unlock = True
+                    
+            elif ach.condition_type == 'total_score':
+                # 总积分达到指定值
+                if user.total_score >= ach.condition_value:
+                    should_unlock = True
+                    
+            elif ach.condition_type == 'favorite_songs':
+                # 收藏歌曲达到指定数量
+                if user.favorites.count() >= ach.condition_value:
+                    should_unlock = True
+                    
+            elif ach.condition_type == 'created_songs':
+                # 创作歌曲（这里简化，使用答题作为代理）
+                # 实际应该统计创作记录
+                quiz_count = QuizRecord.query.filter_by(user_id=user.id).count()
+                if quiz_count >= ach.condition_value:
+                    should_unlock = True
+                    
+            elif ach.condition_type == 'forum_posts':
+                # 发表帖子达到指定数量
+                if user.posts.count() >= ach.condition_value:
+                    should_unlock = True
+            
+            if should_unlock:
+                user.achievements.append(ach)
+                # （注意：不需要手动增加积分，total_score 是计算属性）
+                newly_unlocked.append(ach)
+        
+        if newly_unlocked:
+            db.session.commit()
+        
+        return newly_unlocked
+
+    def get_user_achievements(self, user):
+        """获取用户已解锁和未解锁的成就"""
+        all_achievements = Achievement.query.all()
+        user_achievement_ids = {a.id for a in user.achievements}
+        
+        unlocked = [a for a in all_achievements if a.id in user_achievement_ids]
+        locked = [a for a in all_achievements if a.id not in user_achievement_ids]
+        
+        return {
+            'unlocked': [a.to_dict() for a in unlocked],
+            'locked': [a.to_dict() for a in locked],
+            'unlocked_count': len(unlocked),
+            'total_count': len(all_achievements)
+        }
+
+    def get_quiz_leaderboard(self, limit=10):
+        """获取答题积分排行榜（仅按答题积分排序）"""
+        # 计算每个用户的答题积分
+        quiz_score_subq = db.session.query(
+            QuizRecord.user_id,
+            func.sum(QuizRecord.score_earned).label('quiz_score')
+        ).group_by(QuizRecord.user_id).subquery()
+        
+        # 只查询有答题记录的用户，并按答题积分排序
+        result = db.session.query(
+            User.id,
+            User.username,
+            func.coalesce(quiz_score_subq.c.quiz_score, 0).label('quiz_score')
+        ).join(quiz_score_subq, User.id == quiz_score_subq.c.user_id)\
+        .order_by(func.coalesce(quiz_score_subq.c.quiz_score, 0).desc())\
+        .limit(limit)\
+        .all()
+        
+        return [{
+            'rank': idx + 1,
+            'username': r.username,
+            'quiz_score': int(r.quiz_score) if r.quiz_score else 0,
+            'achievement_count': User.query.get(r.id).achievements.count()
+        } for idx, r in enumerate(result)]
+
+    def get_leaderboard(self, limit=10):
+        """获取排行榜（使用子查询实现按计算属性排序）"""
+        # 计算每个用户的总积分（答题积分 + 成就积分）
+        quiz_score_subq = db.session.query(
+            QuizRecord.user_id,
+            func.sum(QuizRecord.score_earned).label('quiz_score')
+        ).group_by(QuizRecord.user_id).subquery()
+        
+        achievement_score_subq = db.session.query(
+            user_achievements.c.user_id,
+            func.sum(Achievement.points).label('achievement_score')
+        ).join(Achievement, user_achievements.c.achievement_id == Achievement.id)\
+            .group_by(user_achievements.c.user_id).subquery()
+        
+        # 使用外连接获取所有用户，并计算总积分
+        result = db.session.query(
+            User.id,
+            User.username,
+            func.coalesce(quiz_score_subq.c.quiz_score, 0).label('quiz_score'),
+            func.coalesce(achievement_score_subq.c.achievement_score, 0).label('achievement_score')
+        ).outerjoin(quiz_score_subq, User.id == quiz_score_subq.c.user_id)\
+        .outerjoin(achievement_score_subq, User.id == achievement_score_subq.c.user_id)\
+        .order_by((func.coalesce(quiz_score_subq.c.quiz_score, 0) +
+                    func.coalesce(achievement_score_subq.c.achievement_score, 0)).desc())\
+        .limit(limit)\
+        .all()
+        
+        return [{
+            'rank': idx + 1,
+            'username': user.username,
+            'total_score': user.total_score,
+            'achievement_count': user.achievements.count()
+        } for idx, user in enumerate([User.query.get(r.id) for r in result])]
 
 
 
@@ -532,8 +812,342 @@ def init_db():
         db.session.bulk_save_objects(events_to_add)
 
     db.session.commit()
-    print("数据库已初始化并填充了所有初始数据。")
 
+    # 填充竞答题目数据
+    if not QuizQuestion.query.first():
+        questions_to_add = [
+            # 简单题目（10分）
+            QuizQuestion(
+                question="《中华人民共和国国歌》的原名是什么？",
+                option_a="《东方红》",
+                option_b="《义勇军进行曲》",
+                option_c="《没有共产党就没有新中国》",
+                option_d="《歌唱祖国》",
+                correct_answer="B",
+                explanation="《中华人民共和国国歌》原名为《义勇军进行曲》，创作于1935年。",
+                difficulty="easy",
+                points=10
+            ),
+            QuizQuestion(
+                question="《东方红》这首歌来源于哪个地区的民歌？",
+                option_a="陕北",
+                option_b="东北",
+                option_c="江南",
+                option_d="西南",
+                correct_answer="A",
+                explanation="《东方红》源自陕北的革命民歌，歌颂了毛泽东同志和人民的深厚感情。",
+                difficulty="easy",
+                points=10
+            ),
+            QuizQuestion(
+                question="《没有共产党就没有新中国》这首歌创作于哪一年？",
+                option_a="1938年",
+                option_b="1943年",
+                option_c="1949年",
+                option_d="1952年",
+                correct_answer="B",
+                explanation="《没有共产党就没有新中国》创作于1943年抗日战争时期。",
+                difficulty="easy",
+                points=10
+            ),
+            QuizQuestion(
+                question="《歌唱祖国》被誉为什么？",
+                option_a="第三国歌",
+                option_b="第二国歌",
+                option_c="军歌",
+                option_d="民歌",
+                correct_answer="B",
+                explanation="《歌唱祖国》创作于1951年，被誉为\"第二国歌\"。",
+                difficulty="easy",
+                points=10
+            ),
+            QuizQuestion(
+                question="《我和我的祖国》的首唱者是哪位歌手？",
+                option_a="邓丽君",
+                option_b="李谷一",
+                option_c="彭丽媛",
+                option_d="宋祖英",
+                correct_answer="B",
+                explanation="《我和我的祖国》由张藜作词、秦咏诚作曲，李谷一于1985年首唱。",
+                difficulty="easy",
+                points=10
+            ),
+            
+            # 中等题目（20分）
+            QuizQuestion(
+                question="《黄河大合唱》的词作者是谁？",
+                option_a="田汉",
+                option_b="光未然",
+                option_c="聂耳",
+                option_d="冼星海",
+                correct_answer="B",
+                explanation="《黄河大合唱》由光未然作词、冼星海作曲，1939年在延安创作完成。",
+                difficulty="medium",
+                points=20
+            ),
+            QuizQuestion(
+                question="《洪湖水，浪打浪》是哪部歌剧中的经典唱段？",
+                option_a="《白毛女》",
+                option_b="《洪湖赤卫队》",
+                option_c="《江姐》",
+                option_d="《刘胡兰》",
+                correct_answer="B",
+                explanation="《洪湖水，浪打浪》是歌剧《洪湖赤卫队》的选曲，描绘了湖北洪湖地区的风光。",
+                difficulty="medium",
+                points=20
+            ),
+            QuizQuestion(
+                question="《南泥湾》歌颂的什么精神？",
+                option_a="革命斗争精神",
+                option_b="自力更生、艰苦奋斗",
+                option_c="团结友爱",
+                option_d="无私奉献",
+                correct_answer="B",
+                explanation="《南泥湾》诞生于抗战时期，歌颂了八路军三五九旅在南泥湾垦荒屯田、自力更生的奋斗精神。",
+                difficulty="medium",
+                points=20
+            ),
+            QuizQuestion(
+                question="《义勇军进行曲》最初是哪部电影的插曲？",
+                option_a="《风云儿女》",
+                option_b="《桃李劫》",
+                option_c="《大路》",
+                option_d="《马路天使》",
+                correct_answer="A",
+                explanation="《义勇军进行曲》最初是1935年电影《风云儿女》的主题曲。",
+                difficulty="medium",
+                points=20
+            ),
+            QuizQuestion(
+                question="《游击队歌》的作者是谁？",
+                option_a="聂耳",
+                option_b="贺绿汀",
+                option_c="冼星海",
+                option_d="吕骥",
+                correct_answer="B",
+                explanation="《游击队歌》由贺绿汀于1937年在山西创作，生动展现了游击队员的战斗形象。",
+                difficulty="medium",
+                points=20
+            ),
+            
+            # 困难题目（30分）
+            QuizQuestion(
+                question="《毕业歌》是哪部电影的插曲？这部电影的导演是谁？",
+                option_a="《马路天使》，袁牧之",
+                option_b="《桃李劫》，应云卫",
+                option_c="《风云儿女》，许幸之",
+                option_d="《都市风光》，袁牧之",
+                correct_answer="B",
+                explanation="《毕业歌》是1934年电影《桃李劫》的插曲，由聂耳作曲、田汉作词，应云卫导演。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《在那遥远的地方》这首歌的灵感源自哪里？",
+                option_a="内蒙古草原",
+                option_b="青海金银滩草原",
+                option_c="新疆天山",
+                option_d="西藏高原",
+                correct_answer="B",
+                explanation="《在那遥远的地方》是王洛宾1939年赴青海金银滩草原采风时，受藏族姑娘卓玛的灵感启发创作的。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《松花江上》的创作者是谁？他在创作这首歌时的背景是什么？",
+                option_a="聂耳，1935年上海",
+                option_b="张寒晖，1936年西安目睹东北军民流亡",
+                option_c="贺绿汀，1937年山西抗日前线",
+                option_d="冼星海，1938年延安",
+                correct_answer="B",
+                explanation="《松花江上》由张寒晖1936年在陕西西安创作，他目睹了\"九一八\"事变后东北军民流亡关内的悲惨情景。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《红星照我去战斗》是哪部电影的主题曲？这部电影讲述了什么故事？",
+                option_a="《闪闪的红星》，讲述了少年潘冬子在革命斗争中成长的故事",
+                option_b="《智取威虎山》，讲述了杨子荣智斗土匪的故事",
+                option_c="《红色娘子军》，讲述了海南女战士的革命故事",
+                option_d="《白毛女》，讲述了农民反抗地主压迫的故事",
+                correct_answer="A",
+                explanation="《红星照我去战斗》是1973年电影《闪闪的红星》的插曲，讲述了少年潘冬子在革命斗争中成长的故事。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《十送红军》源自哪里？经过怎样的改编历程？",
+                option_a="湖南民歌，1970年代改编",
+                option_b="江西赣南客家民歌《送郎歌》，1960年代改编加工",
+                option_c="四川民歌，1980年代改编",
+                option_d="陕北民歌，1950年代改编",
+                correct_answer="B",
+                explanation="《十送红军》源自江西赣南的客家民歌《送郎歌》，后在60年代被张士燮等改编加工，通过\"十送\"的细节，真切表现了红军长征前根据地人民与红军的深情。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《义勇军进行曲》被正式确定为中华人民共和国国歌是在哪一年？",
+                option_a="1949年",
+                option_b="1982年",
+                option_c="2004年",
+                option_d="1950年",
+                correct_answer="B",
+                explanation="1949年《义勇军进行曲》被选定为中华人民共和国代国歌，1982年被全国人民代表大会正式确认为国歌。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《黄河大合唱》包含几个乐章？其中最著名的乐章是哪个？",
+                option_a="6个乐章，《黄水谣》",
+                option_b="7个乐章，《保卫黄河》",
+                option_c="8个乐章，《黄河颂》",
+                option_d="9个乐章，《怒吼吧，黄河》",
+                correct_answer="B",
+                explanation="《黄河大合唱》包含9个乐章（不是7个），其中《保卫黄河》是最著名和广泛传播的乐章。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《春天的故事》歌词中\"1979年，那是一个春天\"指的是什么历史事件？",
+                option_a="改革开放拉开序幕",
+                option_b="邓小平南方谈话",
+                option_c="深圳经济特区建立",
+                option_d="党的十一届三中全会召开",
+                correct_answer="A",
+                explanation="《春天的故事》中\"1979年，那是一个春天\"指的是改革开放拉开序幕，\"1992年又是一个春天\"指的是邓小平南方谈话。",
+                difficulty="hard",
+                points=30
+            ),
+            QuizQuestion(
+                question="《七子之歌·澳门》的歌词源自谁的诗作？这首歌诞生于什么时候？",
+                option_a="郭沫若，1919年五·四运动时期",
+                option_b="闻一多1925年创作的《七子之歌》组诗，1999年澳门回归时谱曲",
+                option_c="艾青，1940年抗战时期",
+                option_d="臧克家，1970年代",
+                correct_answer="B",
+                explanation="《七子之歌·澳门》歌词取自闻一多1925年创作的《七子之歌》组诗，1999年澳门回归时经李海鹰谱曲广为传唱。",
+                difficulty="hard",
+                points=30
+            )
+        ]
+        db.session.bulk_save_objects(questions_to_add)
+        print("已初始化竞答题目数据。")
+
+    # 填充成就徽章数据
+    if not Achievement.query.first():
+        achievements_to_add = [
+            # 答题类成就
+            Achievement(
+                name="初学乍练",
+                description="答对第1道题目，开始你的红歌知识之旅！",
+                icon="🎯",
+                category="quiz",
+                condition_type="quiz_correct",
+                condition_value=1,
+                points=10
+            ),
+            Achievement(
+                name="渐入佳境",
+                description="答对10道题目，你对红歌已经越来越熟悉了！",
+                icon="🎯",
+                category="quiz",
+                condition_type="quiz_correct",
+                condition_value=10,
+                points=30
+            ),
+            Achievement(
+                name="红歌专家",
+                description="答对50道题目，你已经是一位红歌知识专家了！",
+                icon="🎯",
+                category="quiz",
+                condition_type="quiz_correct",
+                condition_value=50,
+                points=100
+            ),
+            
+            # 收藏类成就
+            Achievement(
+                name="初露锋芒",
+                description="收藏1首红歌，开启你的音乐收藏之旅！",
+                icon="🎵",
+                category="song",
+                condition_type="favorite_songs",
+                condition_value=1,
+                points=30
+            ),
+            Achievement(
+                name="收藏家",
+                description="收藏10首红歌，你的音乐库已经相当丰富了！",
+                icon="🎵",
+                category="song",
+                condition_type="favorite_songs",
+                condition_value=10,
+                points=100
+            ),
+            
+            # 论坛类成就
+            Achievement(
+                name="初声发问",
+                description="发表第1条论坛留言，开始和大家交流吧！",
+                icon="💬",
+                category="forum",
+                condition_type="forum_posts",
+                condition_value=1,
+                points=40
+            ),
+            Achievement(
+                name="社区活跃",
+                description="发表5条论坛留言，你已经成为社区的活跃分子！",
+                icon="💬",
+                category="forum",
+                condition_type="forum_posts",
+                condition_value=5,
+                points=80
+            ),
+            
+            # 综合类成就
+            Achievement(
+                name="积分突破",
+                description="累计获得100积分，你的努力没有白费！",
+                icon="⭐",
+                category="total",
+                condition_type="total_score",
+                condition_value=100,
+                points=50
+            ),
+            Achievement(
+                name="徽章达人",
+                description="解锁5个成就徽章，你的成就之旅已经非常精彩！",
+                icon="🏅",
+                category="total",
+                condition_type="achievement_count",
+                condition_value=5,
+                points=100
+            ),
+            Achievement(
+                name="全能达人",
+                description="解锁8个成就徽章，你在各个领域都有出色表现！",
+                icon="🏅",
+                category="total",
+                condition_type="achievement_count",
+                condition_value=8,
+                points=200
+            ),
+            Achievement(
+                name="巅峰王者",
+                description="解锁所有11个成就徽章，你就是真正的红歌大师！",
+                icon="👑",
+                category="total",
+                condition_type="achievement_count",
+                condition_value=11,
+                points=500
+            )
+        ]
+        db.session.bulk_save_objects(achievements_to_add)
+        print("已初始化成就徽章数据。")
+
+    # 填充论坛帖子数据
     if not ForumPost.query.first() and User.query.first():
         default_user = User.query.first()
         posts = [

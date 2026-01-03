@@ -192,6 +192,87 @@
     transform: scale(1.1);
 }
 
+/* 用户信息栏（包含积分和徽章） */
+.nav-user-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: 1rem;
+}
+.nav-user-info {
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+    color: var(--theme-text);
+}
+.nav-user-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background-color: #FEF2F2;
+    padding: 0.25rem 0.6rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    text-decoration: none !important; /* 移除下划线 */
+}
+.nav-user-badge:hover {
+    background-color: #feeae5;
+    transform: scale(1.05);
+}
+.nav-badge-icon {
+    width: 1rem;
+    height: 1rem;
+    color: #333 !important; /* 黑色图标 */
+    fill: currentColor !important;
+    stroke: currentColor !important;
+}
+.nav-badge-points {
+    color: var(--theme-red);
+    font-weight: 600;
+}
+.nav-badge-achievement {
+    color: var(--theme-gold);
+    font-weight: 600;
+}
+.nav-logout-button {
+    margin-left: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    background-color: #FEF2F2;
+    color: var(--theme-red);
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.nav-logout-button:hover {
+    background-color: var(--theme-red);
+    color: white;
+}
+.nav-login-link {
+    color: var(--theme-red);
+    text-decoration: none;
+    font-weight: 500;
+    margin-left: 0.75rem;
+}
+.nav-login-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    color: #9ca3af;
+    transition: color 0.2s ease;
+}
+.nav-login-button:hover {
+    color: var(--theme-red);
+}
+.nav-login-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
 /* --- 页面主内容区 --- */
 .main-container {
   max-width: 80rem;
@@ -630,3 +711,5 @@
 .guide-action-link:hover {
     background-color: #b89628; /* 深金色 */
 }
+
+

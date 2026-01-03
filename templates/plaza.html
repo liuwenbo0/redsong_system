@@ -578,12 +578,52 @@
                     if (data.success) {
                         forumContent.value = '';
                         loadForumPosts();
+                        // 检查是否解锁新成就
+                        checkNewAchievements();
                     } else {
                         alert(data.error || "发布失败");
                     }
                 })
                 .catch(err => console.error(err));
             });
+
+            // 检查新成就
+            function checkNewAchievements() {
+                fetch('/api/achievements/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.newly_unlocked && data.newly_unlocked.length > 0) {
+                        // 显示成就解锁通知
+                        showAchievementNotification(data.newly_unlocked[0]);
+                    }
+                })
+                .catch(error => console.error('检查成就失败:', error));
+            }
+
+            // 显示成就解锁通知
+            function showAchievementNotification(achievement) {
+                const notification = document.createElement('div');
+                notification.className = 'achievement-notification';
+                notification.innerHTML = `
+                    <div class="achievement-notification-content">
+                        <span class="achievement-notification-icon">${achievement.icon}</span>
+                        <div class="achievement-notification-text">
+                            <span class="achievement-notification-title">成就解锁！</span>
+                            <span class="achievement-notification-name">${achievement.name}</span>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(notification);
+                
+                // 3秒后自动消失
+                setTimeout(() => {
+                    notification.classList.add('achievement-notification-hide');
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
         });
     </script>
 </body>
