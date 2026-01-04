@@ -223,9 +223,29 @@ def register_routes(app):
             user=current_user,
         )
 
+        response = {}
+        status_code = 200
+        
         if isinstance(result_dict_or_tuple, tuple):
-            return jsonify(result_dict_or_tuple[0]), result_dict_or_tuple[1]
-        return jsonify(result_dict_or_tuple)
+            response, status_code = result_dict_or_tuple
+        else:
+            response = result_dict_or_tuple
+        
+        # 检查是否解锁了新成就（只对对话意图检查）
+        if current_user.is_authenticated and data.get("user_input") and response.get("response_type") == "text":
+            # 对话记录已经在agent_service中保存，现在重新获取历史检查成就
+            chat_count = len(data_service.get_chat_history(current_user.id))
+            print(f"[DEBUG] APP API - 对话数={chat_count}")
+            # 只在对话数为1、10等里程碑时检查
+            if chat_count == 1 or chat_count == 10:
+                newly_unlocked = data_service.check_and_unlock_achievements(current_user)
+                if newly_unlocked:
+                    response["newly_unlocked"] = [a.to_dict() for a in newly_unlocked]
+                    print(f"[DEBUG] APP API - 需要返回的newly_unlocked: {response['newly_unlocked']}")
+
+        if isinstance(result_dict_or_tuple, tuple):
+            return jsonify(response), status_code
+        return jsonify(response)
 
     # --- 其他 API ---
     @app.route("/api/chat/history", methods=["GET"])
@@ -277,7 +297,17 @@ def register_routes(app):
     @app.route("/api/articles", methods=["GET"])
     def api_get_articles():
         return jsonify({"articles": data_service.get_articles()})
-
+    
+    @app.route("/api/articles/<int:article_id>/view", methods=["POST"])
+    @login_required
+    def api_record_article_view(article_id):
+        """记录用户浏览文章并检查成就"""
+        newly_unlocked = data_service.record_article_view(current_user, article_id)
+        return jsonify({
+            "success": True,
+            "newly_unlocked": [a.to_dict() for a in newly_unlocked] if newly_unlocked else []
+        })
+    
     @app.route("/api/historical_events", methods=["GET"])
     def api_get_historical_events():
         return jsonify({"events": data_service.get_historical_events()})
@@ -306,10 +336,14 @@ def register_routes(app):
                 {"error": "Kie API Key未配置，请联系管理员或检查.env文件"}
             ), 500
         try:
+            song_title = d.get("title", "AI Red Song")
+            song_lyrics = d.get("lyrics", "")
+            song_style = d.get("style", "Classical")
+            
             p = {
-                "prompt": d.get("lyrics"),
-                "style": d.get("style", "Classical"),
-                "title": d.get("title", "AI Red Song"),
+                "prompt": song_lyrics,
+                "style": song_style,
+                "title": song_title,
                 "customMode": True,
                 "instrumental": False,
                 "model": "V3_5",
@@ -343,8 +377,20 @@ def register_routes(app):
                 rj = r.json()
                 code = rj.get("code")
                 if code == 200:
+                    task_id = rj["data"].get("taskId")
+                    # 保存歌曲信息到缓存文件，供status接口使用
+                    cache_data = {
+                        "task_id": task_id,
+                        "status": "PROCESSING",
+                        "title": song_title,
+                        "lyrics": song_lyrics,
+                        "style": song_style
+                    }
+                    with open(os.path.join(CACHE_DIR, f"{task_id}.json"), "w") as f:
+                        json.dump(cache_data, f)
+                    
                     return jsonify(
-                        {"task_id": rj["data"].get("taskId"), "provider": "kie"}
+                        {"task_id": task_id, "provider": "kie"}
                     )
 
                 msg = rj.get("msg", "")
@@ -388,8 +434,16 @@ def register_routes(app):
                     or slist[0].get("audio_url")
                 )
                 if url:
-                    with open(os.path.join(CACHE_DIR, f"{tid}.json"), "w") as f:
-                        json.dump({"status": "SUCCESS", "audio_url": url}, f)
+                    # 读取现有缓存数据并更新audio_url
+                    cache_path = os.path.join(CACHE_DIR, f"{tid}.json")
+                    cache_data = {}
+                    if os.path.exists(cache_path):
+                        with open(cache_path, "r") as f:
+                            cache_data = json.load(f)
+                    cache_data["status"] = "SUCCESS"
+                    cache_data["audio_url"] = url
+                    with open(cache_path, "w") as f:
+                        json.dump(cache_data, f)
             return jsonify({"code": 200}), 200
         except:
             return jsonify({"code": 500}), 500
@@ -401,6 +455,23 @@ def register_routes(app):
             with open(path, "r") as f:
                 d = json.load(f)
                 if ".mp3" in d.get("audio_url", "") or "cdn" in d.get("audio_url", ""):
+                    # 歌曲创建成功，如果用户已登录，记录创作并检查成就
+                    newly_unlocked = []
+                    if current_user.is_authenticated:
+                        # 传递所有必需的参数
+                        song_title = d.get("title", "AI Red Song")
+                        song_lyrics = d.get("lyrics", "")
+                        song_style = d.get("style", "Classical")
+                        audio_url = d.get("audio_url")
+                        newly_unlocked = data_service.record_created_song(
+                            current_user,
+                            song_title,
+                            song_lyrics,
+                            song_style,
+                            audio_url
+                        )
+                        if newly_unlocked:
+                            d["newly_unlocked"] = [a.to_dict() for a in newly_unlocked]
                     return jsonify(d)
         return jsonify({"status": "PROCESSING"})
 

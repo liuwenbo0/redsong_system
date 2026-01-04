@@ -113,10 +113,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // 更新概览数据
     function updateOverview(data) {
         totalScoreEl.textContent = getTotalScore();
-        unlockedCountEl.textContent = data.unlocked_count;
-        progressPercentEl.textContent = Math.round((data.unlocked_count / data.total_count) * 100);
-        unlockedBadge.textContent = data.unlocked_count;
-        lockedBadge.textContent = data.total_count - data.unlocked_count;
+        updateCategoryCounts();
+    }
+    
+    // 更新当前分类下的成就数量
+    function updateCategoryCounts() {
+        const unlocked = allAchievements.filter(a => isUnlocked(a));
+        const locked = allAchievements.filter(a => !isUnlocked(a));
+        
+        const filteredUnlocked = filterByCategory(unlocked);
+        const filteredLocked = filterByCategory(locked);
+        
+        unlockedCountEl.textContent = filteredUnlocked.length;
+        
+        // 计算当前分类下的总成就数
+        const totalInCategory = filterByCategory(allAchievements).length;
+        if (totalInCategory > 0) {
+            progressPercentEl.textContent = Math.round((filteredUnlocked.length / totalInCategory) * 100);
+        } else {
+            progressPercentEl.textContent = 0;
+        }
+        
+        unlockedBadge.textContent = filteredUnlocked.length;
+        lockedBadge.textContent = filteredLocked.length;
     }
     
     // 获取总积分
@@ -182,6 +201,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         renderUnlockedAchievements(unlocked);
         renderLockedAchievements(locked);
+        
+        // 更新分类数量显示
+        updateCategoryCounts();
     }
     
     // 判断是否已解锁
@@ -233,6 +255,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const categoryMap = {
             'quiz': '🎯 答题',
             'song': '🎵 收藏',
+            'learn': '📖 浏览',
+            'create': '✨ 创作',
+            'chat': '📚 对话',
             'forum': '💬 论坛',
             'total': '🌟 综合'
         };
@@ -244,9 +269,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const conditionMap = {
             'quiz_correct': `答对 ${achievement.condition_value} 道题目`,
             'quiz_streak': `连续答对 ${achievement.condition_value} 道题目`,
+            'learn_articles': `浏览 ${achievement.condition_value} 篇AI红歌微课文章`,
+            'create_songs': `创作 ${achievement.condition_value} 首红歌`,
+            'chat_messages': `与红歌专家对话 ${achievement.condition_value} 次`,
             'total_score': `累计获得 ${achievement.condition_value} 积分`,
             'favorite_songs': `收藏 ${achievement.condition_value} 首红歌`,
-            'created_songs': `创作 ${achievement.condition_value} 首歌曲`,
             'forum_posts': `发表 ${achievement.condition_value} 条论坛留言`,
             'achievement_count': `解锁 ${achievement.condition_value} 个成就`
         };
@@ -430,6 +457,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function getNextSteps(achievement) {
         const conditionMap = {
             'quiz_correct': `${achievement.condition_value} 道正确答题`,
+            'learn_articles': `${achievement.condition_value} 篇微课文章浏览`,
+            'create_songs': `${achievement.condition_value} 首歌曲创作`,
             'total_score': `${achievement.condition_value} 积分`,
             'favorite_songs': `${achievement.condition_value} 首收藏`,
             'forum_posts': `${achievement.condition_value} 条留言`,

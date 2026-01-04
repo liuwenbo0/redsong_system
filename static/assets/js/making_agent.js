@@ -203,6 +203,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // 5. 处理响应
             handleAgentResponse(data);
             
+            // 检查并显示成就通知
+            console.log('[DEBUG] Making API完整响应:', data);
+            console.log('[DEBUG] newly_unlocked字段:', data.newly_unlocked);
+            if (data.newly_unlocked && data.newly_unlocked.length > 0) {
+                console.log('发现新成就:', data.newly_unlocked[0]);
+                showAchievementNotification(data.newly_unlocked[0]);
+            } else {
+                console.log('[DEBUG] 没有新成就或newly_unlocked为空');
+            }
+            
             // 6. 刷新侧边栏历史记录
             setTimeout(loadHistoryPanel, 200);
 
@@ -273,6 +283,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             handleAgentResponse(data);
+            
+            // 检查并显示成就通知
+            if (data.newly_unlocked && data.newly_unlocked.length > 0) {
+                console.log('发现新成就:', data.newly_unlocked[0]);
+                showAchievementNotification(data.newly_unlocked[0]);
+            }
+            
             setTimeout(loadHistoryPanel, 200);
             
         } catch (e) {
@@ -560,4 +577,7 @@ document.addEventListener('DOMContentLoaded', function() {
             conversationHistory = conversationHistory.slice(-20);
         }
     }
+
+    // 显示成就通知 - 已移除本地定义，使用common.js中的全局函数
+    // 不再重复定义，直接调用 window.showAchievementNotification
 });

@@ -217,7 +217,7 @@ class Achievement(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=False)
     icon = db.Column(db.String(50), nullable=False)  # 图标代码/图标类名
-    category = db.Column(db.String(50), nullable=False)  # 类别：quiz/song/create/forum/total
+    category = db.Column(db.String(50), nullable=False)  # 类别：quiz/song/create/forum/total/learn
     condition_type = db.Column(db.String(50), nullable=False)  # 条件类型
     condition_value = db.Column(db.Integer, nullable=False)  # 条件值
     points = db.Column(db.Integer, default=100)  # 解锁成就获得的积分
@@ -233,6 +233,28 @@ class Achievement(db.Model):
             'condition_value': self.condition_value,
             'points': self.points
         }
+
+class ArticleView(db.Model):
+    """用户浏览文章记录模型"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
+    timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(CST))
+    
+    user = db.relationship('User', backref=db.backref('article_views', lazy=True))
+    article = db.relationship('Article', backref=db.backref('views', lazy=True))
+
+class CreatedSong(db.Model):
+    """用户创作歌曲记录模型"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    song_title = db.Column(db.String(200), nullable=False)
+    lyrics = db.Column(db.Text, nullable=False)
+    style = db.Column(db.String(50), nullable=False)
+    audio_url = db.Column(db.String(500), nullable=True)
+    timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(CST))
+    
+    user = db.relationship('User', backref=db.backref('created_songs', lazy=True))
 
 # ==============================================================================
 # (新增) 数据服务层 (Data Service)
@@ -324,6 +346,36 @@ class DataService:
         ChatHistory.query.filter_by(user_id=user_id).delete()
         db.session.commit()
 
+    def record_article_view(self, user, article_id):
+        """记录用户浏览文章"""
+        # 检查是否已经浏览过
+        existing = ArticleView.query.filter_by(user_id=user.id, article_id=article_id).first()
+        if not existing:
+            view = ArticleView(user_id=user.id, article_id=article_id)
+            db.session.add(view)
+            db.session.commit()
+            
+            # 检查并解锁成就
+            newly_unlocked = self.check_and_unlock_achievements(user)
+            return newly_unlocked
+        return []
+    
+    def record_created_song(self, user, song_title, lyrics, style, audio_url=None):
+        """记录用户创作的歌曲"""
+        song = CreatedSong(
+            user_id=user.id,
+            song_title=song_title,
+            lyrics=lyrics,
+            style=style,
+            audio_url=audio_url
+        )
+        db.session.add(song)
+        db.session.commit()
+        
+        # 检查并解锁成就
+        newly_unlocked = self.check_and_unlock_achievements(user)
+        return newly_unlocked
+
     def get_forum_posts(self, current_user=None):
         # 获取所有帖子，但在 Python 中进行排序（因为混合了统计属性，SQL排序较复杂）
         # 排序规则：1. 点赞数 (like_count) 降序； 2. 时间 (timestamp) 降序
@@ -393,7 +445,7 @@ class DataService:
         db.session.commit()
         
         # 检查并解锁成就
-        self.check_and_unlock_achievements(user)
+        newly_unlocked = self.check_and_unlock_achievements(user)
         
         return {
             'success': True,
@@ -401,7 +453,8 @@ class DataService:
             'score_earned': score_earned,
             'correct_answer': question.correct_answer,
             'explanation': question.explanation,
-            'current_total_score': user.total_score
+            'current_total_score': user.total_score,
+            'newly_unlocked': [a.to_dict() for a in newly_unlocked]
         }
 
     def get_user_quiz_stats(self, user_id):
@@ -423,7 +476,6 @@ class DataService:
         """检查并解锁用户成就"""
         achievements = Achievement.query.all()
         newly_unlocked = []
-        
         for ach in achievements:
             # 检查是否已解锁
             if ach in user.achievements:
@@ -464,18 +516,49 @@ class DataService:
                 if quiz_count >= ach.condition_value:
                     should_unlock = True
                     
+            elif ach.condition_type == 'chat_messages':
+                # 对话消息数达到指定数量
+                chat_count = ChatHistory.query.filter_by(user_id=user.id).count()
+                if chat_count >= ach.condition_value:
+                    should_unlock = True
+            
+            elif ach.condition_type == 'learn_articles':
+                # 浏览AI红歌微课达到指定数量
+                view_count = ArticleView.query.filter_by(user_id=user.id).count()
+                if view_count >= ach.condition_value:
+                    should_unlock = True
+            
+            elif ach.condition_type == 'create_songs':
+                # 创作歌曲达到指定数量
+                create_count = CreatedSong.query.filter_by(user_id=user.id).count()
+                if create_count >= ach.condition_value:
+                    should_unlock = True
+            
             elif ach.condition_type == 'forum_posts':
                 # 发表帖子达到指定数量
                 if user.posts.count() >= ach.condition_value:
                     should_unlock = True
             
+            elif ach.condition_type == 'achievement_count':
+                # 解锁指定数量的成就
+                unlocked_count = user.achievements.count()
+                if unlocked_count >= ach.condition_value:
+                    should_unlock = True
+            
             if should_unlock:
-                user.achievements.append(ach)
-                # （注意：不需要手动增加积分，total_score 是计算属性）
-                newly_unlocked.append(ach)
-        
+                print(f"[DEBUG] 解锁成就: {ach.name} (条件 {ach.condition_type})")
+                if ach not in user.achievements:
+                    user.achievements.append(ach)
+                    # （注意：不需要手动增加积分，total_score 是计算属性）
+                    newly_unlocked.append(ach)
+                    print(f"[DEBUG] 成就 {ach.name} 已添加到用户和newly_unlocked列表")
+                else:
+                    print(f"[DEBUG] 成就 {ach.name} 已存在，跳过")
         if newly_unlocked:
             db.session.commit()
+            print(f"[DEBUG] 成功解锁 {len(newly_unlocked)} 个成就，已提交到数据库")
+        else:
+            print(f"[DEBUG] 本次没有新成就解锁")
         
         return newly_unlocked
 
@@ -1034,118 +1117,191 @@ def init_db():
         db.session.bulk_save_objects(questions_to_add)
         print("已初始化竞答题目数据。")
 
-    # 填充成就徽章数据
-    if not Achievement.query.first():
-        achievements_to_add = [
-            # 答题类成就
-            Achievement(
-                name="初学乍练",
-                description="答对第1道题目，开始你的红歌知识之旅！",
-                icon="🎯",
-                category="quiz",
-                condition_type="quiz_correct",
-                condition_value=1,
-                points=10
-            ),
-            Achievement(
-                name="渐入佳境",
-                description="答对10道题目，你对红歌已经越来越熟悉了！",
-                icon="🎯",
-                category="quiz",
-                condition_type="quiz_correct",
-                condition_value=10,
-                points=30
-            ),
-            Achievement(
-                name="红歌专家",
-                description="答对50道题目，你已经是一位红歌知识专家了！",
-                icon="🎯",
-                category="quiz",
-                condition_type="quiz_correct",
-                condition_value=50,
-                points=100
-            ),
-            
-            # 收藏类成就
-            Achievement(
-                name="初露锋芒",
-                description="收藏1首红歌，开启你的音乐收藏之旅！",
-                icon="🎵",
-                category="song",
-                condition_type="favorite_songs",
-                condition_value=1,
-                points=30
-            ),
-            Achievement(
-                name="收藏家",
-                description="收藏10首红歌，你的音乐库已经相当丰富了！",
-                icon="🎵",
-                category="song",
-                condition_type="favorite_songs",
-                condition_value=10,
-                points=100
-            ),
-            
-            # 论坛类成就
-            Achievement(
-                name="初声发问",
-                description="发表第1条论坛留言，开始和大家交流吧！",
-                icon="💬",
-                category="forum",
-                condition_type="forum_posts",
-                condition_value=1,
-                points=40
-            ),
-            Achievement(
-                name="社区活跃",
-                description="发表5条论坛留言，你已经成为社区的活跃分子！",
-                icon="💬",
-                category="forum",
-                condition_type="forum_posts",
-                condition_value=5,
-                points=80
-            ),
-            
-            # 综合类成就
-            Achievement(
-                name="积分突破",
-                description="累计获得100积分，你的努力没有白费！",
-                icon="⭐",
-                category="total",
-                condition_type="total_score",
-                condition_value=100,
-                points=50
-            ),
-            Achievement(
-                name="徽章达人",
-                description="解锁5个成就徽章，你的成就之旅已经非常精彩！",
-                icon="🏅",
-                category="total",
-                condition_type="achievement_count",
-                condition_value=5,
-                points=100
-            ),
-            Achievement(
-                name="全能达人",
-                description="解锁8个成就徽章，你在各个领域都有出色表现！",
-                icon="🏅",
-                category="total",
-                condition_type="achievement_count",
-                condition_value=8,
-                points=200
-            ),
-            Achievement(
-                name="巅峰王者",
-                description="解锁所有11个成就徽章，你就是真正的红歌大师！",
-                icon="👑",
-                category="total",
-                condition_type="achievement_count",
-                condition_value=11,
-                points=500
-            )
-        ]
-        db.session.bulk_save_objects(achievements_to_add)
-        print("已初始化成就徽章数据。")
+    # 填充成就徽章数据 - 支持增量添加（不删除现有成就）
+    # 获取现有成就名称集合，避免重复添加
+    existing_achievement_names = set(ach.name for ach in Achievement.query.all())
+    
+    # 定义所有成就
+    all_achievements = [
+        # 答题类成就
+        Achievement(
+            name="初学乍练",
+            description="答对第1道题目，开始你的红歌知识之旅！",
+            icon="🎯",
+            category="quiz",
+            condition_type="quiz_correct",
+            condition_value=1,
+            points=10
+        ),
+        Achievement(
+            name="渐入佳境",
+            description="答对10道题目，你对红歌已经越来越熟悉了！",
+            icon="🎯",
+            category="quiz",
+            condition_type="quiz_correct",
+            condition_value=10,
+            points=30
+        ),
+        Achievement(
+            name="红歌专家",
+            description="答对50道题目，你已经是一位红歌知识专家了！",
+            icon="🎯",
+            category="quiz",
+            condition_type="quiz_correct",
+            condition_value=50,
+            points=100
+        ),
+        
+        # 浏览类成就
+        Achievement(
+            name="初识峥嵘",
+            description="浏览第1篇AI红歌微课，开启学习之旅！",
+            icon="📖",
+            category="learn",
+            condition_type="learn_articles",
+            condition_value=1,
+            points=30
+        ),
+        Achievement(
+            name="博学多才",
+            description="浏览10篇AI红歌微课，你已经了解了不少历史故事！",
+            icon="📚",
+            category="learn",
+            condition_type="learn_articles",
+            condition_value=10,
+            points=100
+        ),
+        
+        # 收藏类成就
+        Achievement(
+            name="初露锋芒",
+            description="收藏1首红歌，开启你的音乐收藏之旅！",
+            icon="🎵",
+            category="song",
+            condition_type="favorite_songs",
+            condition_value=1,
+            points=30
+        ),
+        Achievement(
+            name="收藏家",
+            description="收藏10首红歌，你的音乐库已经相当丰富了！",
+            icon="🎵",
+            category="song",
+            condition_type="favorite_songs",
+            condition_value=10,
+            points=100
+        ),
+        
+        # 创作类成就
+        Achievement(
+            name="初试锋芒",
+            description="创作第1首红歌，开启你的创作之旅！",
+            icon="🎨",
+            category="create",
+            condition_type="create_songs",
+            condition_value=1,
+            points=50
+        ),
+        Achievement(
+            name="创作达人",
+            description="创作5首红歌，你的创作能力已经很出色了！",
+            icon="🎵",
+            category="create",
+            condition_type="create_songs",
+            condition_value=5,
+            points=150
+        ),
+        
+        # 对话类成就
+        Achievement(
+            name="初探古今",
+            description="与红歌专家进行第1次对话，开始探索红歌背后的故事！",
+            icon="💬",
+            category="chat",
+            condition_type="chat_messages",
+            condition_value=1,
+            points=30
+        ),
+        Achievement(
+            name="历史学者",
+            description="与红歌专家进行10次对话，你已经深入了解了不少红歌故事！",
+            icon="📚",
+            category="chat",
+            condition_type="chat_messages",
+            condition_value=10,
+            points=100
+        ),
+        
+        # 论坛类成就
+        Achievement(
+            name="初声发问",
+            description="发表第1条论坛留言，开始和大家交流吧！",
+            icon="💬",
+            category="forum",
+            condition_type="forum_posts",
+            condition_value=1,
+            points=40
+        ),
+        Achievement(
+            name="社区活跃",
+            description="发表5条论坛留言，你已经成为社区的活跃分子！",
+            icon="💬",
+            category="forum",
+            condition_type="forum_posts",
+            condition_value=5,
+            points=80
+        ),
+        
+        # 综合类成就
+        Achievement(
+            name="积分突破",
+            description="累计获得100积分，你的努力没有白费！",
+            icon="⭐",
+            category="total",
+            condition_type="total_score",
+            condition_value=100,
+            points=50
+        ),
+        Achievement(
+            name="徽章达人",
+            description="解锁5个成就徽章，你的成就之旅已经非常精彩！",
+            icon="🏅",
+            category="total",
+            condition_type="achievement_count",
+            condition_value=5,
+            points=100
+        ),
+        Achievement(
+            name="全能达人",
+            description="解锁8个成就徽章，你在各个领域都有出色表现！",
+            icon="🏅",
+            category="total",
+            condition_type="achievement_count",
+            condition_value=8,
+            points=200
+        ),
+        Achievement(
+            name="巅峰王者",
+            description="解锁所有11个成就徽章，你就是真正的红歌大师！",
+            icon="👑",
+            category="total",
+            condition_type="achievement_count",
+            condition_value=11,
+            points=500
+        )
+    ]
+
+    # 只添加数据库中不存在的成就
+    added_count = 0
+    for achievement in all_achievements:
+        if achievement.name not in existing_achievement_names:
+            db.session.add(achievement)
+            added_count += 1
+            print(f"添加成就: {achievement.name}")
+    
+    if added_count > 0:
+        db.session.commit()
+        print(f"共添加了 {added_count} 个新成就。")
 
     # 填充论坛帖子数据
     if not ForumPost.query.first() and User.query.first():
@@ -1166,4 +1322,5 @@ def register_commands(app):
     def init_db_command():
         with app.app_context():
             init_db()
+
 

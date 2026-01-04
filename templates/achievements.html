@@ -99,7 +99,10 @@
                         <button class="category-tab active" data-category="all">全部</button>
                         <button class="category-tab" data-category="quiz">🎯 答题</button>
                         <button class="category-tab" data-category="song">🎵 收藏</button>
+                        <button class="category-tab" data-category="chat">📚 对话</button>
                         <button class="category-tab" data-category="forum">💬 论坛</button>
+                        <button class="category-tab" data-category="learn">📖 浏览</button>
+                        <button class="category-tab" data-category="create">✨ 创作</button>
                         <button class="category-tab" data-category="total">🌟 综合</button>
                     </div>
 
@@ -163,6 +166,23 @@
                     <span class="reward-points">+<span id="detail-points">100</span> 积分</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 成就解锁弹窗 -->
+    <div id="achievement-modal-overlay" class="achievement-modal-overlay hidden">
+        <div class="achievement-modal-content">
+            <div class="achievement-animation">
+                <div class="achievement-icon" id="achievement-icon">🏆</div>
+                <div class="achievement-stars">
+                    <span>⭐</span><span>⭐</span><span>⭐</span>
+                </div>
+            </div>
+            <h2 class="achievement-title">恭喜解锁成就！</h2>
+            <p class="achievement-name" id="achievement-name">成就名称</p>
+            <p class="achievement-desc" id="achievement-desc">成就描述</p>
+            <p class="achievement-points">+<span id="achievement-points">100</span> 积分</p>
+            <button id="achievement-close-btn" class="achievement-close-btn">太棒了！</button>
         </div>
     </div>
 
