@@ -21,3 +21,4 @@
 project.db
 server.log
 temp_tasks/
+*.log

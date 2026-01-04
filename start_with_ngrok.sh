@@ -18,8 +18,10 @@ if [ -n "$NGROK_AUTHTOKEN" ]; then
     ngrok config add-authtoken "$NGROK_AUTHTOKEN" > /dev/null
 
     # 构建 ngrok 命令
-    # 默认绑定到本地 5000 端口
-    NGROK_CMD="ngrok http 5000 --log=stdout"
+    # 默认绑定到本地 5000 端口，或者环境变量 PORT
+    TARGET_PORT=${PORT:-5000}
+    # 必须清除代理设置，否则免费版 ngrok 会报错 ERR_NGROK_9009
+    NGROK_CMD="env -u HTTP_PROXY -u HTTPS_PROXY ngrok http ${TARGET_PORT} --log=stdout"
     
     # 支持在环境变量中配置固定的 Domain (如果用户有)
     if [ -n "$NGROK_DOMAIN" ]; then
@@ -47,7 +49,6 @@ if [ -n "$NGROK_AUTHTOKEN" ]; then
     done
 
     if [ "$NGROK_URL" != "null" ] && [ -n "$NGROK_URL" ]; then
-        # 覆盖 CALLBACK_URL 环境变量
         export CALLBACK_URL="${NGROK_URL}/api/kie/callback"
         
         echo "============================================================"
@@ -67,4 +68,5 @@ fi
 # 2. 启动主应用 (Gunicorn)
 # 使用 exec 替换当前 shell 进程，确保信号能传递给 Gunicorn
 echo ">>> 正在启动 Gunicorn..."
-exec gunicorn -w 4 -b 0.0.0.0:5000 app:app
+# exec gunicorn -w 4 -b 0.0.0.0:5000 app:app
+exec python app.py

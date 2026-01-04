@@ -1,9 +1,21 @@
-import json
+"""
+Agent 服务模块
+
+提供 AI 助手"红小韵"的服务，包括：
+- 意图识别：分析用户输入，识别用户意图
+- 问答处理：处理用户的红歌相关问题
+- 内容生成：生成歌词、搜索歌曲和视频内容
+- 导航指挥：根据用户意图进行页面导航
+"""
+
 import logging
+import json
+
 from database import Article
 from services.llm_service import call_openrouter_api
 
 logger = logging.getLogger(__name__)
+
 
 SENSITIVE_WORDS = ["暴力", "色情", "赌博", "反动", "脏话", "违规"]
 
@@ -34,13 +46,39 @@ def process_agent_request(
 ):
     """
     处理 Agent 请求的核心业务逻辑
-    :param user_input: 用户输入的文本
-    :param history: 对话历史 (frontend_history)
-    :param confirmed_action: 前端传回的确认动作
-    :param api_key: LLM API Key
-    :param data_service: 数据服务实例
-    :param user: 当前用户对象 (current_user)
-    :return: 响应字典 (可直接 JSONify) 或 tuple (dict, status_code)
+
+    该函数是 AI 助手的中央处理器，负责：
+    1. 验证 API Key 和用户输入
+    2. 执行用户已确认的操作
+    3. 进行敏感词过滤
+    4. 构建对话上下文并调用 LLM 进行意图识别
+    5. 根据识别的意图执行相应的业务逻辑
+    6. 返回格式化的响应
+
+    Args:
+        user_input (str): 用户输入的文本
+        history (list): 对话历史记录（front_end_history）
+        confirmed_action (dict): 前端传回的确认动作（可选）
+        api_key (str): LLM API 密钥
+        data_service (DataService): 数据服务实例
+        user (User): 当前用户对象（current_user）
+
+    Returns:
+        dict or tuple: 响应字典（可直接 JSONify）或元组 (dict, status_code)
+                      响应格式示例：
+                      {
+                          "response_type": "text",
+                          "text_response": "回复内容"
+                      }
+                      或
+                      {
+                          "response_type": "content_card",
+                          "card_type": "song_list",
+                          "data": [...]
+                      }
+
+    Raises:
+        无异常，内部捕获并返回错误响应
     """
     if not api_key:
         return {"error": "API Key 未配置"}, 500
@@ -154,7 +192,38 @@ def process_agent_request(
 
 
 def _handle_confirmed_action(confirmed_action, api_key, data_service, user):
-    """处理前端确认后的动作"""
+    """
+    处理前端确认后的动作（私有方法）
+
+    当用户在前端确认某个操作后，该函数执行相应的业务逻辑。
+    目前支持：
+    - 歌词创作确认：调用 LLM 生成歌词内容
+
+    Args:
+        confirmed_action (dict): 前端传回的确认动作，包含：
+            - intent (str): 操作意图
+            - params (dict): 操作参数
+        api_key (str): LLM API 密钥
+        data_service (DataService): 数据服务实例
+        user (User): 当前用户对象
+
+    Returns:
+        dict: 响应字典，格式取决于具体的操作类型。
+              歌词创作示例：
+              {
+                  "response_type": "content_card",
+                  "card_type": "lyrics_card",
+                  "data": {
+                      "lyrics": "歌词内容",
+                      "theme": "主题",
+                      "navigate_instruction": {
+                          "path": "/creation",
+                          "params": {"auto_fill_lyrics": "歌词内容"}
+                      }
+                  },
+                  "text_response": "歌词创作完成！"
+              }
+    """
     intent = confirmed_action.get("intent")
     params = confirmed_action.get("params", {})
 

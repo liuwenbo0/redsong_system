@@ -1,47 +1,84 @@
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.sql import func
-# 新增: 密码哈希
-from werkzeug.security import generate_password_hash, check_password_hash
-# 新增: 登录管理
-from flask_login import UserMixin
+"""
+数据库模型和数据服务层
+
+本模块定义了红歌系统的所有数据库模型和数据服务类 DataService，
+用于封装所有数据库查询和操作逻辑。
+"""
+
 from datetime import datetime
+import logging
+
+from flask_login import UserMixin
+from flask_sqlalchemy import SQLAlchemy
 from pytz import timezone
+from sqlalchemy.sql import func
+from werkzeug.security import check_password_hash, generate_password_hash
+
 # 创建数据库实例
 db = SQLAlchemy()
 CST = timezone("Asia/Shanghai")
 
+# 创建日志记录器
+logger = logging.getLogger(__name__)
 
-# --- 关联表 ---
 
-# 1. 用户收藏歌曲 (原有)
-user_favorites = db.Table('user_favorites',
+# ==============================================================================
+# 关联表 (Association Tables)
+# ==============================================================================
+
+# 用户收藏歌曲关联表
+user_favorites = db.Table(
+    'user_favorites',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('song_id', db.Integer, db.ForeignKey('song.id'), primary_key=True)
 )
 
-# 2. (新增) 用户点赞帖子关联表
-post_likes = db.Table('post_likes',
+# 用户点赞帖子关联表
+post_likes = db.Table(
+    'post_likes',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('post_id', db.Integer, db.ForeignKey('forum_post.id'), primary_key=True)
 )
 
-# 3. (新增) 用户成就关联表
-user_achievements = db.Table('user_achievements',
+# 用户成就关联表
+user_achievements = db.Table(
+    'user_achievements',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('achievement_id', db.Integer, db.ForeignKey('achievement.id'), primary_key=True)
 )
 
-# --- 模型定义 ---
+# ==============================================================================
+# 数据库模型 (Database Models)
+# ==============================================================================
 
 class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(15), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
+    """
+    用户模型
     
-    # （注意：total_score 改为计算属性，不存储在数据库中）
+    存储系统用户信息，包括用户名、密码哈希、收藏、点赞和成就记录。
+    继承自 Flask-Login 的 UserMixin 以支持登录管理。
+    
+    Attributes:
+        id: 用户唯一标识符
+        username: 用户名（最多 15 个字符，唯一）
+        password_hash: 密码哈希值
+        total_score: 用户总积分（计算属性，答题积分 + 成就积分）
+        favorites: 用户收藏的歌曲关系
+        liked_posts: 用户点赞的帖子关系
+        achievements: 用户解锁的成就关系
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='用户唯一标识')
+    username = db.Column(db.String(15), unique=True, nullable=False, comment='用户名，最多 15 字符')
+    password_hash = db.Column(db.String(256), nullable=False, comment='密码哈希值')
+    
     @property
     def total_score(self):
-        """计算用户总积分：答题积分 + 成就积分"""
+        """
+        计算用户总积分（答题积分 + 成就积分）
+        
+        Returns:
+            int: 用户总积分
+        """
         # 答题积分
         quiz_score = db.session.query(func.sum(QuizRecord.score_earned))\
             .filter(QuizRecord.user_id == self.id)\
@@ -55,35 +92,88 @@ class User(UserMixin, db.Model):
         
         return (quiz_score or 0) + (achievement_score or 0)
     
-    # 收藏关系
-    favorites = db.relationship('Song', secondary=user_favorites, lazy='dynamic',
-                                backref=db.backref('favorited_by', lazy=True))
-    # (新增) 点赞关系 - 用户赞过的帖子
-    liked_posts = db.relationship('ForumPost', secondary=post_likes, lazy='dynamic',
-                                  backref=db.backref('liked_by', lazy='dynamic'))
-    # 新增：用户成就关系
-    achievements = db.relationship('Achievement', secondary=user_achievements, lazy='dynamic',
-                                   backref=db.backref('earned_by', lazy='dynamic'))
+    # 关系定义
+    favorites = db.relationship(
+        'Song',
+        secondary=user_favorites,
+        lazy='dynamic',
+        backref=db.backref('favorited_by', lazy='dynamic')
+    )
+    liked_posts = db.relationship(
+        'ForumPost',
+        secondary=post_likes,
+        lazy='dynamic',
+        backref=db.backref('liked_by', lazy='dynamic')
+    )
+    achievements = db.relationship(
+        'Achievement',
+        secondary=user_achievements,
+        lazy='dynamic',
+        backref=db.backref('earned_by', lazy='dynamic')
+    )
 
     def set_password(self, password):
+        """
+        设置用户密码哈希
+        
+        Args:
+            password: 明文密码
+        """
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
+        """
+        验证用户密码
+        
+        Args:
+            password: 明文密码
+            
+        Returns:
+            bool: 密码是否正确
+        """
         return check_password_hash(self.password_hash, password)
 
 class ForumPost(db.Model):
-    """论坛/留言板帖子"""
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text, nullable=False)
+    """
+    论坛/留言板帖子模型
+    
+    存储用户在论坛发布的帖子内容，支持点赞功能。
+    
+    Attributes:
+        id: 帖子唯一标识
+        content: 帖子内容
+        timestamp: 发布时间（中国时区）
+        user_id: 发布者用户 ID
+        user: 发布者关系
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='帖子唯一标识')
+    content = db.Column(db.Text, nullable=False, comment='帖子内容')
     timestamp = db.Column(
         db.DateTime(timezone=True),
-        default=lambda: datetime.now(CST)
+        default=lambda: datetime.now(CST),
+        comment='发布时间'
     )
-    
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    user = db.relationship('User', backref=db.backref('posts', lazy='dynamic', overlaps="liked_posts,liked_by"))
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+        comment='发布者用户 ID'
+    )
+    user = db.relationship(
+        'User',
+        backref=db.backref('posts', lazy='dynamic', overlaps="liked_posts,liked_by")
+    )
 
     def to_dict(self, current_user=None):
+        """
+        将帖子转换为字典格式
+        
+        Args:
+            current_user: 当前登录用户对象（可选）
+            
+        Returns:
+            dict: 包含帖子信息的字典，包括当前用户是否已点赞
+        """
         # 计算点赞数
         like_count = self.liked_by.count()
         # 判断当前用户是否已赞
@@ -97,7 +187,7 @@ class ForumPost(db.Model):
             'id': self.id,
             'content': self.content,
             'username': self.user.username,
-            'user_id': self.user_id, # 返回作者ID，用于前端判断是否显示删除按钮
+            'user_id': self.user_id,
             'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M'),
             'like_count': like_count,
             'is_liked': is_liked
@@ -108,69 +198,139 @@ class ForumPost(db.Model):
 # ==============================================================================
 
 class Song(db.Model):
-    """歌曲模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    artist = db.Column(db.String(100), nullable=False)
-    audio_url = db.Column(db.String(200), nullable=True)
-    region = db.Column(db.String(50), nullable=True)
-    # is_favorite = db.Column(db.Boolean, default=False, nullable=False)
-    description = db.Column(db.Text, nullable=True)
+    """
+    歌曲模型
+    
+    存储红歌的基本信息，包括标题、演唱者、音频链接、地区和描述。
+    
+    Attributes:
+        id: 歌曲唯一标识
+        title: 歌曲标题
+        artist: 演唱者/艺术家
+        audio_url: 音频文件 URL
+        region: 歌曲所属地区
+        description: 歌曲描述
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='歌曲唯一标识')
+    title = db.Column(db.String(100), nullable=False, comment='歌曲标题')
+    artist = db.Column(db.String(100), nullable=False, comment='演唱者/艺术家')
+    audio_url = db.Column(db.String(200), nullable=True, comment='音频文件 URL')
+    region = db.Column(db.String(50), nullable=True, comment='歌曲所属地区')
+    description = db.Column(db.Text, nullable=True, comment='歌曲描述')
 
     def to_dict(self):
+        """
+        将歌曲转换为字典格式
+        
+        Returns:
+            dict: 包含歌曲信息的字典
+        """
         return {
             'id': self.id,
             'title': self.title,
             'artist': self.artist,
             'audio_url': self.audio_url,
             'region': self.region,
-            # 'is_favorite': self.is_favorite,
             'description': self.description
         }
 
 class Article(db.Model):
-    """文章模型 - 新增 video_url 字段"""
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    summary = db.Column(db.Text, nullable=False)
-    video_url = db.Column(db.String(255), nullable=True) # 新增：视频链接字段
+    """
+    文章模型 - AI 红歌微课
+    
+    存储学习资料文章，包括标题、摘要和视频链接。
+    
+    Attributes:
+        id: 文章唯一标识
+        title: 文章标题
+        summary: 文章摘要
+        video_url: 视频链接
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='文章唯一标识')
+    title = db.Column(db.String(100), nullable=False, comment='文章标题')
+    summary = db.Column(db.Text, nullable=False, comment='文章摘要')
+    video_url = db.Column(db.String(255), nullable=True, comment='视频链接')
 
     def to_dict(self):
+        """
+        将文章转换为字典格式
+        
+        Returns:
+            dict: 包含文章信息的字典
+        """
         return {
             'id': self.id,
             'title': self.title,
             'summary': self.summary,
-            'video_url': self.video_url # 新增：在API中返回视频链接
+            'video_url': self.video_url
         }
 
 class HistoricalEvent(db.Model):
-    """历史事件模型 - 新增详细描述字段"""
-    id = db.Column(db.Integer, primary_key=True)
-    year = db.Column(db.Integer, nullable=False)
-    event_description = db.Column(db.Text, nullable=False)
-    detailed_description = db.Column(db.Text, nullable=True) # 新增：详细介绍
+    """
+    历史事件模型
+    
+    存储中国革命史和红歌历史的相关事件。
+    
+    Attributes:
+        id: 事件唯一标识
+        year: 事件年份
+        event_description: 事件简述
+        detailed_description: 事件详细介绍
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='事件唯一标识')
+    year = db.Column(db.Integer, nullable=False, comment='事件年份')
+    event_description = db.Column(db.Text, nullable=False, comment='事件简述')
+    detailed_description = db.Column(db.Text, nullable=True, comment='事件详细介绍')
 
     def to_dict(self):
+        """
+        将历史事件转换为字典格式
+        
+        Returns:
+            dict: 包含历史事件信息的字典
+        """
         return {
-            'id': self.id, 
-            'year': self.year, 
+            'id': self.id,
+            'year': self.year,
             'event_description': self.event_description,
-            'detailed_description': self.detailed_description # 新增：在API中返回
+            'detailed_description': self.detailed_description
         }
     
 class ChatHistory(db.Model):
-    """聊天记录模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    question = db.Column(db.Text, nullable=False)
-    answer = db.Column(db.Text, nullable=False)
+    """
+    聊天记录模型
+    
+    存储用户与 AI 助手的对话历史。
+    
+    Attributes:
+        id: 记录唯一标识
+        question: 用户提问
+        answer: AI 回答
+        timestamp: 对话时间
+        user_id: 用户 ID
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='记录唯一标识')
+    question = db.Column(db.Text, nullable=False, comment='用户提问')
+    answer = db.Column(db.Text, nullable=False, comment='AI 回答')
     timestamp = db.Column(
         db.DateTime(timezone=True),
-        default=lambda: datetime.now(CST)
+        default=lambda: datetime.now(CST),
+        comment='对话时间'
     )
-    # 新增：外键，关联到用户
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+        comment='用户 ID'
+    )
+    
     def to_dict(self):
-        # 格式化时间戳，使其在API中更友好
+        """
+        将聊天记录转换为字典格式
+        
+        Returns:
+            dict: 包含聊天记录信息的字典
+        """
         return {
             'id': self.id,
             'question': self.question,
@@ -179,50 +339,100 @@ class ChatHistory(db.Model):
         }
 
 # ==============================================================================
-# (新增) 答题和成就相关模型
+# 答题和成就相关模型 (Quiz and Achievement Models)
 # ==============================================================================
 
 class QuizQuestion(db.Model):
-    """竞答题目模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    question = db.Column(db.Text, nullable=False)
-    option_a = db.Column(db.String(200), nullable=False)
-    option_b = db.Column(db.String(200), nullable=False)
-    option_c = db.Column(db.String(200), nullable=False)
-    option_d = db.Column(db.String(200), nullable=False)
-    correct_answer = db.Column(db.String(1), nullable=False)  # A/B/C/D
-    explanation = db.Column(db.Text, nullable=True)  # 解析
-    difficulty = db.Column(db.String(20), default='medium')  # easy/medium/hard
-    points = db.Column(db.Integer, default=10)  # 本题积分
+    """
+    竞答题目模型
+    
+    存储红歌知识竞答的题目信息。
+    
+    Attributes:
+        id: 题目唯一标识
+        question: 题目内容
+        option_a: 选项 A
+        option_b: 选项 B
+        option_c: 选项 C
+        option_d: 选项 D
+        correct_answer: 正确答案（A/B/C/D）
+        explanation: 答案解析
+        difficulty: 难度（easy/medium/hard）
+        points: 本题积分
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='题目唯一标识')
+    question = db.Column(db.Text, nullable=False, comment='题目内容')
+    option_a = db.Column(db.String(200), nullable=False, comment='选项 A')
+    option_b = db.Column(db.String(200), nullable=False, comment='选项 B')
+    option_c = db.Column(db.String(200), nullable=False, comment='选项 C')
+    option_d = db.Column(db.String(200), nullable=False, comment='选项 D')
+    correct_answer = db.Column(db.String(1), nullable=False, comment='正确答案（A/B/C/D）')
+    explanation = db.Column(db.Text, nullable=True, comment='答案解析')
+    difficulty = db.Column(db.String(20), default='medium', comment='难度')
+    points = db.Column(db.Integer, default=10, comment='本题积分')
 
 class QuizRecord(db.Model):
-    """答题记录模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    question_id = db.Column(db.Integer, db.ForeignKey('quiz_question.id'), nullable=False)
-    user_answer = db.Column(db.String(1), nullable=False)
-    is_correct = db.Column(db.Boolean, nullable=False)
-    score_earned = db.Column(db.Integer, default=0)
+    """
+    答题记录模型
+    
+    存储用户的答题历史记录。
+    
+    Attributes:
+        id: 记录唯一标识
+        user_id: 用户 ID
+        question_id: 题目 ID
+        user_answer: 用户答案
+        is_correct: 是否正确
+        score_earned: 获得积分
+        timestamp: 答题时间
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='记录唯一标识')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, comment='用户 ID')
+    question_id = db.Column(db.Integer, db.ForeignKey('quiz_question.id'), nullable=False, comment='题目 ID')
+    user_answer = db.Column(db.String(1), nullable=False, comment='用户答案')
+    is_correct = db.Column(db.Boolean, nullable=False, comment='是否正确')
+    score_earned = db.Column(db.Integer, default=0, comment='获得积分')
     timestamp = db.Column(
         db.DateTime(timezone=True),
-        default=lambda: datetime.now(CST)
+        default=lambda: datetime.now(CST),
+        comment='答题时间'
     )
     
     user = db.relationship('User', backref=db.backref('quiz_records', lazy=True))
     question = db.relationship('QuizQuestion', backref=db.backref('records', lazy=True))
 
 class Achievement(db.Model):
-    """成就徽章模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    icon = db.Column(db.String(50), nullable=False)  # 图标代码/图标类名
-    category = db.Column(db.String(50), nullable=False)  # 类别：quiz/song/create/forum/total/learn
-    condition_type = db.Column(db.String(50), nullable=False)  # 条件类型
-    condition_value = db.Column(db.Integer, nullable=False)  # 条件值
-    points = db.Column(db.Integer, default=100)  # 解锁成就获得的积分
+    """
+    成就徽章模型
+    
+    存储系统中可解锁的成就徽章定义。
+    
+    Attributes:
+        id: 成就唯一标识
+        name: 成就名称
+        description: 成就描述
+        icon: 成就图标
+        category: 成就类别（quiz/song/create/forum/total/learn）
+        condition_type: 条件类型
+        condition_value: 条件值
+        points: 解锁获得的积分
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='成就唯一标识')
+    name = db.Column(db.String(50), unique=True, nullable=False, comment='成就名称')
+    description = db.Column(db.Text, nullable=False, comment='成就描述')
+    icon = db.Column(db.String(50), nullable=False, comment='成就图标')
+    category = db.Column(db.String(50), nullable=False, comment='成就类别')
+    condition_type = db.Column(db.String(50), nullable=False, comment='条件类型')
+    condition_value = db.Column(db.Integer, nullable=False, comment='条件值')
+    points = db.Column(db.Integer, default=100, comment='解锁积分')
 
     def to_dict(self):
+        """
+        将成就转换为字典格式
+        
+        Returns:
+            dict: 包含成就信息的字典
+        """
         return {
             'id': self.id,
             'name': self.name,
@@ -235,41 +445,95 @@ class Achievement(db.Model):
         }
 
 class ArticleView(db.Model):
-    """用户浏览文章记录模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
-    timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(CST))
+    """
+    用户浏览文章记录模型
+    
+    存储用户浏览文章的历史记录，用于成就系统。
+    
+    Attributes:
+        id: 记录唯一标识
+        user_id: 用户 ID
+        article_id: 文章 ID
+        timestamp: 浏览时间
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='记录唯一标识')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, comment='用户 ID')
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False, comment='文章 ID')
+    timestamp = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(CST),
+        comment='浏览时间'
+    )
     
     user = db.relationship('User', backref=db.backref('article_views', lazy=True))
     article = db.relationship('Article', backref=db.backref('views', lazy=True))
 
 class CreatedSong(db.Model):
-    """用户创作歌曲记录模型"""
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    song_title = db.Column(db.String(200), nullable=False)
-    lyrics = db.Column(db.Text, nullable=False)
-    style = db.Column(db.String(50), nullable=False)
-    audio_url = db.Column(db.String(500), nullable=True)
-    timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(CST))
+    """
+    用户创作歌曲记录模型
+    
+    存储用户通过 AI 创作的歌曲记录。
+    
+    Attributes:
+        id: 记录唯一标识
+        user_id: 用户 ID
+        song_title: 歌曲标题
+        lyrics: 歌词内容
+        style: 音乐风格
+        audio_url: 生成的音频 URL
+        timestamp: 创作时间
+    """
+    id = db.Column(db.Integer, primary_key=True, comment='记录唯一标识')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, comment='用户 ID')
+    song_title = db.Column(db.String(200), nullable=False, comment='歌曲标题')
+    lyrics = db.Column(db.Text, nullable=False, comment='歌词内容')
+    style = db.Column(db.String(50), nullable=False, comment='音乐风格')
+    audio_url = db.Column(db.String(500), nullable=True, comment='生成的音频 URL')
+    timestamp = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(CST),
+        comment='创作时间'
+    )
     
     user = db.relationship('User', backref=db.backref('created_songs', lazy=True))
 
 # ==============================================================================
-# (新增) 数据服务层 (Data Service)
+# 数据服务层 (Data Service)
 # ==============================================================================
+
 class DataService:
-    """封装所有数据库查询和操作"""
+    """
+    数据服务类
+    
+    封装所有数据库查询和操作，提供统一的数据访问接口。
+    将数据库操作逻辑与业务逻辑分离，便于维护和测试。
+    """
 
     def _get_user_favorite_ids(self, user):
-        """辅助函数：获取已登录用户的收藏ID集合，用于快速查询"""
+        """
+        获取已登录用户的收藏 ID 集合（私有方法）
+        
+        Args:
+            user: 用户对象
+            
+        Returns:
+            set: 用户收藏的歌曲 ID 集合
+        """
         if user.is_authenticated:
             return {song.id for song in user.favorites.all()}
         return set()
 
     def _add_favorite_status(self, songs_list, favorite_ids):
-        """辅助函数：为歌曲字典列表动态添加 'is_favorite' 键"""
+        """
+        为歌曲列表收藏状态（私有方法）
+        
+        Args:
+            songs_list: 歌曲对象列表
+            favorite_ids: 用户收藏的歌曲 ID 集合
+            
+        Returns:
+            list: 包含收藏状态的歌曲字典列表
+        """
         output = []
         for song in songs_list:
             song_dict = song.to_dict()
@@ -278,27 +542,57 @@ class DataService:
         return output
 
     def search_songs(self, query, user) -> list:
+        """
+        搜索歌曲
+        
+        Args:
+            query: 搜索关键词（可为空）
+            user: 当前用户对象
+            
+        Returns:
+            list: 匹配的歌曲列表，包含收藏状态
+        """
         favorite_ids = self._get_user_favorite_ids(user)
         if not query:
             songs = Song.query.all()
         else:
             search_term = f"%{query.lower()}%"
-            songs = Song.query.filter(db.or_(Song.title.ilike(search_term), Song.artist.ilike(search_term))).all()
+            songs = Song.query.filter(
+                db.or_(Song.title.ilike(search_term), Song.artist.ilike(search_term))
+            ).all()
         return self._add_favorite_status(songs, favorite_ids)
 
     def get_songs_by_region(self, region_name, user) -> list:
+        """
+        按地区获取歌曲
+        
+        Args:
+            region_name: 地区名称
+            user: 当前用户对象
+            
+        Returns:
+            list: 该地区歌曲列表，包含收藏状态
+        """
         favorite_ids = self._get_user_favorite_ids(user)
         if region_name == "全国":
             songs = Song.query.filter_by(region="全国").all()
         else:
-            clean_region_name = region_name.replace('省', '').replace('市', '').replace('自治区', '').replace('维吾尔', '').replace('壮族', '').replace('回族', '')
+            clean_region_name = region_name.replace('省', '').replace('市', '')\
+                .replace('自治区', '').replace('维吾尔', '').replace('壮族', '').replace('回族', '')
             songs = Song.query.filter(Song.region.ilike(f"%{clean_region_name}%")).all()
         return self._add_favorite_status(songs, favorite_ids)
 
     def get_favorite_songs(self, user) -> list:
-        # 已登录用户的收藏就是 user.favorites
+        """
+        获取用户收藏的歌曲
+        
+        Args:
+            user: 当前用户对象
+            
+        Returns:
+            list: 用户收藏的歌曲列表
+        """
         songs = user.favorites.all()
-        # 收藏页的歌曲 'is_favorite' 默认为 True
         output = []
         for song in songs:
             song_dict = song.to_dict()
@@ -307,6 +601,16 @@ class DataService:
         return output
 
     def toggle_favorite_status(self, user, song) -> dict:
+        """
+        切换歌曲收藏状态
+        
+        Args:
+            user: 当前用户对象
+            song: 歌曲对象
+            
+        Returns:
+            dict: 更新后的歌曲信息，包含新解锁的成就（如果有）
+        """
         is_favorited = song in user.favorites.all()
         if is_favorited:
             user.favorites.remove(song)
@@ -320,7 +624,7 @@ class DataService:
             song_dict = song.to_dict()
             song_dict['is_favorite'] = True
             
-            # 检查并解锁成就（新增）
+            # 检查并解锁成就
             newly_unlocked = self.check_and_unlock_achievements(user)
             if newly_unlocked:
                 song_dict['newly_unlocked'] = [a.to_dict() for a in newly_unlocked]
@@ -328,26 +632,70 @@ class DataService:
             return song_dict
 
     def get_articles(self) -> list:
+        """
+        获取所有文章列表
+        
+        Returns:
+            list: 文章列表
+        """
         return [article.to_dict() for article in Article.query.all()]
 
     def get_historical_events(self) -> list:
+        """
+        获取所有历史事件列表（按年份排序）
+        
+        Returns:
+            list: 历史事件列表
+        """
         return [event.to_dict() for event in HistoricalEvent.query.order_by(HistoricalEvent.year).all()]
 
     def add_chat_history(self, user_id, question, answer):
+        """
+        添加聊天记录
+        
+        Args:
+            user_id: 用户 ID
+            question: 用户提问
+            answer: AI 回答
+        """
         new_chat = ChatHistory(user_id=user_id, question=question, answer=answer)
         db.session.add(new_chat)
         db.session.commit()
     
     def get_chat_history(self, user_id) -> list:
+        """
+        获取用户聊天历史
+        
+        Args:
+            user_id: 用户 ID
+            
+        Returns:
+            list: 聊天历史列表
+        """
         history = ChatHistory.query.filter_by(user_id=user_id).order_by(ChatHistory.timestamp.asc()).all()
         return [chat.to_dict() for chat in history]
     
     def clear_chat_history(self, user_id):
+        """
+        清空用户聊天历史
+        
+        Args:
+            user_id: 用户 ID
+        """
         ChatHistory.query.filter_by(user_id=user_id).delete()
         db.session.commit()
 
     def record_article_view(self, user, article_id):
-        """记录用户浏览文章"""
+        """
+        记录用户浏览文章并检查成就
+        
+        Args:
+            user: 用户对象
+            article_id: 文章 ID
+            
+        Returns:
+            list: 新解锁的成就列表（如果没有则返回空列表）
+        """
         # 检查是否已经浏览过
         existing = ArticleView.query.filter_by(user_id=user.id, article_id=article_id).first()
         if not existing:
@@ -361,7 +709,19 @@ class DataService:
         return []
     
     def record_created_song(self, user, song_title, lyrics, style, audio_url=None):
-        """记录用户创作的歌曲"""
+        """
+        记录用户创作的歌曲并检查成就
+        
+        Args:
+            user: 用户对象
+            song_title: 歌曲标题
+            lyrics: 歌词内容
+            style: 音乐风格
+            audio_url: 生成的音频 URL（可选）
+            
+        Returns:
+            list: 新解锁的成就列表（如果没有则返回空列表）
+        """
         song = CreatedSong(
             user_id=user.id,
             song_title=song_title,
@@ -377,30 +737,70 @@ class DataService:
         return newly_unlocked
 
     def get_forum_posts(self, current_user=None):
-        # 获取所有帖子，但在 Python 中进行排序（因为混合了统计属性，SQL排序较复杂）
-        # 排序规则：1. 点赞数 (like_count) 降序； 2. 时间 (timestamp) 降序
+        """
+        获取论坛帖子列表（按点赞数和排序）
+        
+        Args:
+            current_user: 当前用户对象（可选）
+            
+        Returns:
+            list: 帖子列表，包含当前用户的点赞状态
+        """
+        # 获取所有帖子，在 Python 中进行排序
+        # 排序规则：1. 点赞数降序；2. 时间降序
         posts = ForumPost.query.all()
-        # 排序
         posts.sort(key=lambda p: (p.liked_by.count(), p.timestamp), reverse=True)
         
         return [post.to_dict(current_user) for post in posts]
 
     def add_forum_post(self, user_id, content):
+        """
+        添加新的论坛帖子
+        
+        Args:
+            user_id: 用户 ID
+            content: 帖子内容
+            
+        Returns:
+            dict: 新创建的帖子信息
+        """
         new_post = ForumPost(user_id=user_id, content=content)
         db.session.add(new_post)
         db.session.commit()
         return new_post.to_dict()
     
     def delete_forum_post(self, post_id, user_id):
+        """
+        删除论坛帖子
+        
+        Args:
+            post_id: 帖子 ID
+            user_id: 用户 ID
+            
+        Returns:
+            bool: 是否删除成功
+        """
         post = ForumPost.query.get(post_id)
         if post and post.user_id == user_id:
             db.session.delete(post)
             db.session.commit()
             return True
         return False
+
     def toggle_post_like(self, post_id, user):
+        """
+        切换帖子点赞状态
+        
+        Args:
+            post_id: 帖子 ID
+            user: 用户对象
+            
+        Returns:
+            dict: 包含点赞状态和总数的字典，失败返回 None
+        """
         post = ForumPost.query.get(post_id)
-        if not post: return None
+        if not post:
+            return None
         
         is_liked = post.liked_by.filter(post_likes.c.user_id == user.id).count() > 0
         if is_liked:
@@ -412,16 +812,34 @@ class DataService:
         db.session.commit()
         return {'liked': liked, 'count': post.liked_by.count()}
 
-    # ==================== 答题相关方法 ====================
+    # ==================== 答题相关方法 (Quiz Methods) ====================
 
     def get_random_quiz_questions(self, count=5):
-        """随机获取指定数量的题目"""
-        all_questions = QuizQuestion.query.all()
+        """
+        随机获取指定数量的题目
+        
+        Args:
+            count: 题目数量（默认为 5）
+            
+        Returns:
+            list: 随机题目列表
+        """
         import random
+        all_questions = QuizQuestion.query.all()
         return random.sample(all_questions, min(count, len(all_questions))) if all_questions else []
 
     def submit_quiz_answer(self, user, question_id, user_answer):
-        """提交答题记录并计算得分"""
+        """
+        提交答题记录并计算得分
+        
+        Args:
+            user: 用户对象
+            question_id: 题目 ID
+            user_answer: 用户答案
+            
+        Returns:
+            dict: 包含答题结果的字典，包括正确性、积分和解析等
+        """
         question = QuizQuestion.query.get(question_id)
         if not question:
             return None
@@ -438,10 +856,6 @@ class DataService:
             score_earned=score_earned
         )
         db.session.add(record)
-        
-        # （注意：不需要手动增加用户积分，total_score 是计算属性）
-        # 积分会通过查询答题记录和成就自动计算
-        
         db.session.commit()
         
         # 检查并解锁成就
@@ -458,7 +872,15 @@ class DataService:
         }
 
     def get_user_quiz_stats(self, user_id):
-        """获取用户答题统计"""
+        """
+        获取用户答题统计
+        
+        Args:
+            user_id: 用户 ID
+            
+        Returns:
+            dict: 包含答题统计信息的字典
+        """
         records = QuizRecord.query.filter_by(user_id=user_id).all()
         total_questions = len(records)
         correct_count = sum(1 for r in records if r.is_correct)
@@ -470,10 +892,18 @@ class DataService:
             'total_score_from_quiz': sum(r.score_earned for r in records)
         }
 
-    # ==================== 成就相关方法 ====================
+    # ==================== 成就相关方法 (Achievement Methods) ====================
 
     def check_and_unlock_achievements(self, user):
-        """检查并解锁用户成就"""
+        """
+        检查并解锁用户成就
+        
+        Args:
+            user: 用户对象
+            
+        Returns:
+            list: 新解锁的成就列表
+        """
         achievements = Achievement.query.all()
         newly_unlocked = []
         for ach in achievements:
@@ -494,8 +924,9 @@ class DataService:
                     should_unlock = True
                     
             elif ach.condition_type == 'quiz_streak':
-                # 连续答对（这里简化处理，检查总正确率）
-                records = QuizRecord.query.filter_by(user_id=user.id).order_by(QuizRecord.timestamp).limit(ach.condition_value).all()
+                # 连续答对（简化处理）
+                records = QuizRecord.query.filter_by(user_id=user.id)\
+                    .order_by(QuizRecord.timestamp).limit(ach.condition_value).all()
                 if all(r.is_correct for r in records) and len(records) >= ach.condition_value:
                     should_unlock = True
                     
@@ -546,24 +977,31 @@ class DataService:
                     should_unlock = True
             
             if should_unlock:
-                print(f"[DEBUG] 解锁成就: {ach.name} (条件 {ach.condition_type})")
+                logger.info(f"解锁成就: {ach.name} (条件 {ach.condition_type})")
                 if ach not in user.achievements:
                     user.achievements.append(ach)
-                    # （注意：不需要手动增加积分，total_score 是计算属性）
                     newly_unlocked.append(ach)
-                    print(f"[DEBUG] 成就 {ach.name} 已添加到用户和newly_unlocked列表")
+                    logger.info(f"成就 {ach.name} 已添加到用户和 newly_unlocked 列表")
                 else:
-                    print(f"[DEBUG] 成就 {ach.name} 已存在，跳过")
+                    logger.warning(f"成就 {ach.name} 已存在，跳过")
         if newly_unlocked:
             db.session.commit()
-            print(f"[DEBUG] 成功解锁 {len(newly_unlocked)} 个成就，已提交到数据库")
+            logger.info(f"成功解锁 {len(newly_unlocked)} 个成就，已提交到数据库")
         else:
-            print(f"[DEBUG] 本次没有新成就解锁")
+            logger.debug("本次没有新成就解锁")
         
         return newly_unlocked
 
     def get_user_achievements(self, user):
-        """获取用户已解锁和未解锁的成就"""
+        """
+        获取用户已解锁和未解锁的成就
+        
+        Args:
+            user: 用户对象
+            
+        Returns:
+            dict: 包含已解锁、未解锁成就和统计信息的字典
+        """
         all_achievements = Achievement.query.all()
         user_achievement_ids = {a.id for a in user.achievements}
         
@@ -578,14 +1016,22 @@ class DataService:
         }
 
     def get_quiz_leaderboard(self, limit=10):
-        """获取答题积分排行榜（仅按答题积分排序）"""
+        """
+        获取答题积分排行榜（仅按答题积分排序）
+        
+        Args:
+            limit: 返回排行榜数量（默认为 10）
+            
+        Returns:
+            list: 排行榜列表，包含排名、用户名、积分和成就数
+        """
         # 计算每个用户的答题积分
         quiz_score_subq = db.session.query(
             QuizRecord.user_id,
             func.sum(QuizRecord.score_earned).label('quiz_score')
         ).group_by(QuizRecord.user_id).subquery()
         
-        # 只查询有答题记录的用户，并按答题积分排序
+        # 查询有答题记录的用户，按答题积分排序
         result = db.session.query(
             User.id,
             User.username,
@@ -603,13 +1049,22 @@ class DataService:
         } for idx, r in enumerate(result)]
 
     def get_leaderboard(self, limit=10):
-        """获取排行榜（使用子查询实现按计算属性排序）"""
-        # 计算每个用户的总积分（答题积分 + 成就积分）
+        """
+        获取总积分排行榜（答题积分 + 成就积分）
+        
+        Args:
+            limit: 返回排行榜数量（默认为 10）
+            
+        Returns:
+            list: 排行榜列表，包含排名、用户名、总积分和成就数
+        """
+        # 计算每个用户的答题积分
         quiz_score_subq = db.session.query(
             QuizRecord.user_id,
             func.sum(QuizRecord.score_earned).label('quiz_score')
         ).group_by(QuizRecord.user_id).subquery()
         
+        # 计算每个用户的成就积分
         achievement_score_subq = db.session.query(
             user_achievements.c.user_id,
             func.sum(Achievement.points).label('achievement_score')
@@ -643,7 +1098,17 @@ class DataService:
 # ==============================================================================
 
 def init_db():
-    """创建所有表并填充初始数据"""
+    """
+    初始化数据库
+    
+    创建所有表并填充初始数据，包括：
+    - 歌曲
+    - 文章（微课）
+    - 历史事件
+    - 竞答题目
+    - 成就徽章
+    - 论坛帖子
+    """
     db.create_all()
 
     # 填充歌曲数据
@@ -895,8 +1360,11 @@ def init_db():
         db.session.bulk_save_objects(events_to_add)
 
     db.session.commit()
+    logger.info("歌曲、文章、历史事件数据初始化完成")
 
-    # 填充竞答题目数据
+    # ==============================================================================
+    # 初始化竞答题目数据
+    # ==============================================================================
     if not QuizQuestion.query.first():
         questions_to_add = [
             # 简单题目（10分）
@@ -1115,9 +1583,12 @@ def init_db():
             )
         ]
         db.session.bulk_save_objects(questions_to_add)
-        print("已初始化竞答题目数据。")
+        db.session.commit()
+        logger.info("竞答题目数据初始化完成")
 
-    # 填充成就徽章数据 - 支持增量添加（不删除现有成就）
+    # ==============================================================================
+    # 初始化成就徽章数据（支持增量添加）
+    # ==============================================================================
     # 获取现有成就名称集合，避免重复添加
     existing_achievement_names = set(ach.name for ach in Achievement.query.all())
     
@@ -1317,9 +1788,15 @@ def init_db():
     print("数据库已初始化并填充了所有初始数据。")
 
 def register_commands(app):
-    """向Flask应用注册命令行"""
+    """
+    向 Flask 应用注册命令行命令
+    
+    Args:
+        app: Flask 应用实例
+    """
     @app.cli.command("init-db")
     def init_db_command():
+        """初始化数据库命令：在命令行中运行 `flask init-db`"""
         with app.app_context():
             init_db()
 
