@@ -3,6 +3,13 @@ set -e
 
 # 数智红韵网 Docker 启动脚本 (支持 ngrok)
 
+# 加载 .env 环境变量 (如果存在)
+if [ -f .env ]; then
+    echo ">>> 加载 .env 配置文件..."
+    # 导出所有非注释行
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # 1. 尝试配置并启动 ngrok
 if [ -n "$NGROK_AUTHTOKEN" ]; then
     echo ">>> 检测到 NGROK_AUTHTOKEN，正在配置 ngrok..."
