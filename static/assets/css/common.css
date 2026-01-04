@@ -416,6 +416,86 @@
     color: var(--theme-red);
 }
 
+/* 成就解锁通知（浮动通知） */
+.achievement-notification {
+    position: fixed;
+    top: 5rem;
+    right: 2rem;
+    z-index: 10001;
+    animation: slideInRight 0.5s ease-out;
+}
+
+.achievement-notification-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    padding: 1rem 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    border: 2px solid #f59e0b;
+}
+
+.achievement-notification-icon {
+    font-size: 2.5rem;
+    animation: bounce 0.6s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+.achievement-notification-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.achievement-notification-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #92400e;
+}
+
+.achievement-notification-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #78350f;
+}
+
+.achievement-notification-points {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #b45309;
+    margin-top: 0.25rem;
+}
+
+.achievement-notification-hide {
+    animation: fadeOutRight 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
 /* --- 登录/注册弹窗 (红色主题) --- */
 .auth-modal-overlay {
     position: fixed;
@@ -710,6 +790,129 @@
 }
 .guide-action-link:hover {
     background-color: #b89628; /* 深金色 */
+}
+
+/* ==================== 成就解锁弹窗 (通用样式) ==================== */
+.achievement-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.achievement-modal-content {
+    background: white;
+    border: 3px solid var(--theme-gold);
+    padding: 2rem;
+    border-radius: 0.75rem;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.achievement-animation {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.achievement-icon {
+    font-size: 5rem;
+    animation: achievementPop 0.8s ease-out;
+}
+
+@keyframes achievementPop {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.3) rotate(180deg);
+    }
+    100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 1;
+    }
+}
+
+.achievement-stars {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    animation: sparkle 1s infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.achievement-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #C12C1F;
+    margin-bottom: 0.5rem;
+}
+
+.achievement-name {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffc107;
+    margin-bottom: 1rem;
+}
+
+.achievement-desc {
+    color: #666;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.achievement-points {
+    font-size: 1.25rem;
+    color: #C12C1F;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.achievement-close-btn {
+    background: linear-gradient(135deg, #C12C1F, #E63946);
+    color: #fff;
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.achievement-close-btn:hover {
+    background: linear-gradient(135deg, #E63946, #C12C1F);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(193, 44, 31, 0.3);
 }
 
 

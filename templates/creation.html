@@ -392,12 +392,17 @@
                             downloadBtn.href = data.audio_url;
                             audioPlayerWrapper.classList.remove('hidden');
                             resetSongButton();
+                            
+                            // 检查是否有新成就解锁
+                            if (data.newly_unlocked && data.newly_unlocked.length > 0) {
+                                showAchievementNotification(data.newly_unlocked);
+                            }
                         } else if (data.status === 'FAILURE') {
                             clearInterval(pollingInterval);
                             songStatus.innerHTML = `<p class="error">生成失败: ${data.error || '未知错误'}</p>`;
                             resetSongButton();
                         } else {
-                            songStatus.innerHTML = '<div class="spinner"></div><p>AI正在谱曲中，这可能需要1-2分钟，请保持页面开启...</p>';
+                            songStatus.innerHTML = '<div class="spinner"></div><p>AI正在谱曲中，这可能需要6-7分钟，请保持页面开启...</p>';
                         }
                     })
                     .catch(error => {

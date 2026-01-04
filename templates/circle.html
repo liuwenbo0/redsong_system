@@ -485,8 +485,10 @@
                                     }
                                     
                                     // 检查是否解锁了新成就
-                                    if (data.newly_unlocked && data.newly_unlocked.length > 0) {
-                                        showAchievementNotification(data.newly_unlocked[0]);
+                                    if (data.song.newly_unlocked && data.song.newly_unlocked.length > 0) {
+                                        console.log('发现新成就，直接显示:', data.song.newly_unlocked[0]);
+                                        // 直接显示成就解锁通知（不需要再调用API）
+                                        showAchievementNotification(data.song.newly_unlocked[0]);
                                         // 刷新用户积分显示
                                         checkAuthStatus();
                                     }
@@ -498,9 +500,30 @@
                         });
                 }
             });
-
+            function checkNewAchievements() {
+                console.log('开始检查新成就...');
+                fetch('/api/achievements/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    console.log('成就检查响应:', data);
+                    if (data.success && data.newly_unlocked && data.newly_unlocked.length > 0) {
+                        console.log('发现新成就，准备显示:', data.newly_unlocked[0]);
+                        // 显示成就解锁通知
+                        showAchievementNotification(data.newly_unlocked[0]);
+                    } else {
+                        console.log('没有新成就解锁');
+                    }
+                })
+                .catch(error => {
+                    console.error('检查成就失败:', error);
+                });
+            }
             // 显示成就解锁通知
             function showAchievementNotification(achievement) {
+                console.log('创建成就通知元素:', achievement);
                 const notification = document.createElement('div');
                 notification.className = 'achievement-notification';
                 notification.innerHTML = `
@@ -513,11 +536,15 @@
                     </div>
                 `;
                 document.body.appendChild(notification);
+                console.log('通知元素已添加到 DOM:', notification);
                 
                 // 3秒后自动消失
                 setTimeout(() => {
                     notification.classList.add('achievement-notification-hide');
-                    setTimeout(() => notification.remove(), 300);
+                    setTimeout(() => {
+                        notification.remove();
+                        console.log('通知元素已从 DOM 中移除');
+                    }, 300);
                 }, 3000);
             }
 

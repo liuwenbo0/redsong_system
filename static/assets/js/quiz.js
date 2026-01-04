@@ -169,8 +169,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateQuizScore(data.score_earned);
                 }
                 
-                // 检查新成就
-                checkNewAchievements();
+                // 检查并显示成就解锁通知
+                if (data.newly_unlocked && data.newly_unlocked.length > 0) {
+                    console.log('quiz页面解锁新成就:', data.newly_unlocked[0]);
+                    loadUserStats(); // 更新积分显示
+                    setTimeout(() => showAchievementNotification(data.newly_unlocked[0]), 500);
+                }
                 
                 // 显示下一题按钮
                 nextQuestionBtn.classList.remove('hidden');
@@ -279,6 +283,43 @@ document.addEventListener('DOMContentLoaded', function() {
         startQuiz();
     }
     
+    // 显示成就解锁通知（浮动通知）
+    function showAchievementNotification(achievement) {
+        console.log('显示成就通知:', achievement);
+        
+        // 检查是否已存在通知，避免重复
+        const existingNotification = document.querySelector('.achievement-notification');
+        if (existingNotification) {
+            console.log('已存在成就通知，移除旧通知');
+            existingNotification.remove();
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = 'achievement-notification';
+        notification.style.zIndex = '99999';
+        notification.innerHTML = `
+            <div class="achievement-notification-content">
+                <span class="achievement-notification-icon">${achievement.icon}</span>
+                <div class="achievement-notification-text">
+                    <span class="achievement-notification-title">成就解锁！</span>
+                    <span class="achievement-notification-name">${achievement.name}</span>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(notification);
+        console.log('成就通知已添加到 DOM, 元素:', notification);
+        console.log('通知位置:', notification.getBoundingClientRect());
+        
+        // 3秒后自动消失
+        setTimeout(() => {
+            notification.classList.add('achievement-notification-hide');
+            setTimeout(() => {
+                notification.remove();
+                console.log('成就通知已从 DOM 中移除');
+            }, 300);
+        }, 3000);
+    }
+    
     // 检查新成就
     function checkNewAchievements() {
         fetch('/api/achievements/check', {
@@ -287,18 +328,18 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(r => r.json())
         .then(data => {
-            console.log('成就检查响应:', data); // 调试日志
+            console.log('quiz页面成就检查响应:', data);
             if (data.success && data.newly_unlocked && data.newly_unlocked.length > 0) {
-                console.log('解锁新成就:', data.newly_unlocked[0]); // 调试日志
+                console.log('quiz页面解锁新成就:', data.newly_unlocked[0]);
                 // 更新积分显示
                 loadUserStats();
-                // 显示成就解锁弹窗
-                showAchievementModal(data.newly_unlocked[0]);
+                // 显示成就解锁通知（使用浮动通知）
+                setTimeout(() => showAchievementNotification(data.newly_unlocked[0]), 500);
             } else {
-                console.log('没有新成就解锁');
+                console.log('quiz页面没有新成就解锁');
             }
         })
-        .catch(error => console.error('检查成就失败:', error));
+        .catch(error => console.error('quiz页面检查成就失败:', error));
     }
     
     // 显示成就弹窗

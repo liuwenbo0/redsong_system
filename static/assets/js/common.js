@@ -206,3 +206,60 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
+// ==================== 全局成就通知函数 ====================
+
+/**
+ * 显示成就解锁通知（浮动通知）- 全局函数
+ * @param {Object|Array} achievement - 成就对象 {name, icon, points} 或成就数组
+ */
+window.showAchievementNotification = function(achievement) {
+    console.log('显示成就通知:', achievement);
+    
+    // 检查是否已存在通知，避免重复
+    const existingNotification = document.querySelector('.achievement-notification');
+    if (existingNotification) {
+        console.log('已存在成就通知，移除旧通知');
+        existingNotification.remove();
+    }
+    
+    // 处理数组输入（取第一个）或单个对象
+    if (Array.isArray(achievement)) {
+        if (achievement.length === 0) {
+            console.log('成就数组为空，不显示通知');
+            return;
+        }
+        achievement = achievement[0];
+    }
+    
+    // 确保成就数据完整
+    if (!achievement || !achievement.name) {
+        console.error('成就数据不完整:', achievement);
+        return;
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = 'achievement-notification';
+    notification.style.zIndex = '99999';
+    notification.innerHTML = `
+        <div class="achievement-notification-content">
+            <span class="achievement-notification-icon">${achievement.icon || '🏆'}</span>
+            <div class="achievement-notification-text">
+                <span class="achievement-notification-title">成就解锁！</span>
+                <span class="achievement-notification-name">${achievement.name}</span>
+                ${achievement.points ? `<span class="achievement-notification-points">+${achievement.points} 积分</span>` : ''}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notification);
+    console.log('成就通知已添加到 DOM, 元素:', notification);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        notification.classList.add('achievement-notification-hide');
+        setTimeout(() => {
+            notification.remove();
+            console.log('成就通知已从 DOM 中移除');
+        }, 300);
+    }, 3000);
+};

@@ -354,14 +354,18 @@
 
 
             // 加载红歌微课
-            fetch('/api/articles') // <-- 这样写
+            fetch('/api/articles')
                 .then(response => response.json())
                 .then(data => {
+                    // 保存文章数据供成就系统使用
+                    articleList.dataset.articles = JSON.stringify(data.articles || []);
                     articleList.innerHTML = '';
                     if (data.articles && data.articles.length > 0) {
                         data.articles.forEach(article => {
                             const item = document.createElement('div');
                             item.className = 'article-item';
+                            // 保存article ID用于成就系统
+                            item.dataset.articleId = article.id;
                             
                             let playIconHTML = '';
                             if (article.video_url) {
@@ -417,6 +421,23 @@
                         videoPlayer.src = videoUrl;
                         videoModal.classList.remove('hidden');
                         videoPlayer.play();
+                        
+                        // 记录文章浏览并检查成就
+                        const articleId = clickedItem.dataset.articleId;
+                        if (articleId && currentUserId) {
+                            fetch(`/api/articles/${articleId}/view`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include'
+                            })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.newly_unlocked && data.newly_unlocked.length > 0) {
+                                    showAchievementNotification(data.newly_unlocked[0]);
+                                }
+                            })
+                            .catch(console.error);
+                        }
                     }
                 }
             });
