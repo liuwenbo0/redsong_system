@@ -75,6 +75,14 @@ wget https://github.com/liuwenbo0/redsong_system/archive/refs/heads/main.zip
 cd redsong_system
 ```
 
+##### 导入必要文件
+
+导入我们赛题提交邮件附件中的`/static`文件夹和`.env`文件至项目目录下
+```bash
+cp -r 源路径/static redsong_system/
+cp .env redsong_system/
+```
+
 ##### 配置本地环境
 
 ```bash

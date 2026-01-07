@@ -6,14 +6,14 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
-/static/music/*
-/static/videos/*
+/static
 /model/*
 /tmp/*
 /__pycache__/*
 /instance/project.db
 /venv/*
 /services/__pycache__/
+.env
 .idea/
 .cospec/
 .github/
