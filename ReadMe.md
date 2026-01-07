@@ -23,30 +23,10 @@
 
 - **内存**: 2GB+
 - **磁盘空间**: 500MB+
-- **操作系统**: Linux / macOS / Windows
+- **操作系统**: Linux / macOS / WSL
 
-## 📦 依赖库及安装命令
+## 📦 依赖库
 
-### 安装依赖
-
-```bash
-# 方式一：一键安装所有依赖
-pip install -r requirements.txt
-
-# 方式二：手动安装核心依赖
-pip install Flask==2.3.2
-pip install Flask-CORS==4.0.0
-pip install Flask-Login==0.6.3
-pip install Flask-SQLAlchemy==3.0.5
-pip install python-dotenv==1.0.0
-pip install SQLAlchemy==2.0.21
-pip install requests==2.31.0
-pip install pytz
-pip install gunicorn
-pip install Werkzeug==2.3.7
-```
-
-### 依赖说明
 
 | 依赖库           | 版本   | 用途             |
 | ---------------- | ------ | ---------------- |
@@ -61,140 +41,67 @@ pip install Werkzeug==2.3.7
 | gunicorn         | -      | WSGI HTTP 服务器 |
 | Werkzeug         | 2.3.7  | WSGI 工具库      |
 
+
 ## 🚀 详细运行步骤
 
-### 步骤一：获取项目代码
+
+
+### 步骤一：部署应用
+
+这一步有两种方式:
+
+#### I. 拉取Docker镜像直接运行
+
+我们利用Costrict将项目封装到了一个Docker镜像中,安装[docker](https://docs.docker.com/desktop/)后,运行下面的命令可以直接部署(默认使用5001端口)
 
 ```bash
+docker run -d -p 5001:5000 webliu/redsong-system:test
+```
+
+
+#### II. 配置本地环境部署
+
+##### 首先获取项目文件
+```bash
 # 克隆项目（如果您有 Git 仓库）
-git clone <your-repo-url> redsong_system
+git clone https://github.com/maomao517/redsong_system.git
 cd redsong_system
 
 # 或者直接下载项目文件夹并进入目录
+wget https://github.com/maomao517/redsong_system/archive/refs/heads/master.zip
 cd redsong_system
 ```
 
-### 步骤二：创建虚拟环境
-
-**Linux/macOS:**
+##### 配置本地环境
 
 ```bash
-# 创建虚拟环境
-python3 -m venv .venv
-
-# 激活虚拟环境
-source .venv/bin/activate
-
-# 验证虚拟环境已激活（提示符前会有 (.venv) 标记）
-which python  # 应该显示 .venv/bin/python
+./deploy.sh
+# 此脚本会自动检查依赖、配置环境，并赋予启动脚本执行权限。
 ```
 
-**Windows:**
+##### 启动应用
 
 ```bash
-# 创建虚拟环境
-python -m venv .venv
-
-# 激活虚拟环境
-.venv\Scripts\activate
-
-# 或者使用 PowerShell
-.venv\Scripts\Activate.ps1
-
-# 验证虚拟环境已激活
-where python  # 应该显示 .venv\Scripts\python.exe
+./start_with_ngrok.sh
+# 此脚本会启动应用（默认使用Gunicorn，失败则回退到Python），并可选启动ngrok内网穿透。
 ```
 
-### 步骤三：安装依赖
-
-```bash
-# 确保虚拟环境已激活后，安装项目依赖
-pip install -r requirements.txt
-
-# 等待安装完成，验证安装
-pip list  # 查看已安装的包
-```
-
-### 步骤四：配置环境变量
-
-```bash
-# 1. 创建 .env 文件（如果没有 .env.example，请手动创建）
-touch .env
-
-# 2. 编辑 .env 文件，填入以下配置
-nano .env  # Linux/macOS
-# 或使用记事本、VS Code 等编辑器打开 .env 文件
-```
-
-**在 .env 文件中添加以下内容：**
-
-```env
-# Flask 配置
-FLASK_DEBUG=True
-FLASK_ENV=development
-SECRET_KEY=jf83h_sdf98f3h2983hf9834hf9834h
-HOST=0.0.0.0
-PORT=5000
-
-# 数据库配置
-DATABASE_URL=sqlite:///project.db
-
-# API 密钥配置（必需）
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-KIE_API_KEY=your_kie_api_key_here
-
-# Ngrok 配置（可选，用于外网访问）
-NGROK_DOMAIN=your-ngrok-domain
-```
-
-**获取 API 密钥的方法：**
-
-1. **OpenRouter API Key**: 访问 https://openrouter.ai/ 注册并获取
-2. **Kie API Key**: 访问 https://kie.ai/ 注册并获取
-
-### 步骤五：启动应用
-
-**开发模式启动：**
-
-```bash
-# 确保虚拟环境已激活
-source .venv/bin/activate  # Linux/macOS
-# 或 .venv\Scripts\activate  # Windows
-
-# 启动应用
-python app.py
-
-# 看到以下输出表示启动成功：
-#  * Running on http://0.0.0.0:5000
-#  * Restarting with stat
-```
-
-**使用 Gunicorn 启动（推荐用于生产）：**
-
-```bash
-# 安装 gunicorn（如果未安装）
-pip install gunicorn
-
-# 启动应用
-gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
-```
-
-### 步骤六：访问应用
+### 步骤二：访问应用
 
 1. 打开浏览器
-2. 在地址栏输入：`http://localhost:5000`
+2. 在地址栏输入：`http://localhost:{$PORT}`(环境变量文件.env中PORT的值)
 3. 您将看到数智红韵网的主页
 
 **主要功能页面：**
 
-- 主页：`http://localhost:5000/`
-- 听·山河（红歌）：`http://localhost:5000/circle`
-- 问·古今（对话）：`http://localhost:5000/making`
-- 阅·峥嵘（视频）：`http://localhost:5000/plaza`
-- 谱·华章（创作）：`http://localhost:5000/creation`
-- 我的收藏：`http://localhost:5000/favorites`
+- 主页：`http://localhost:{$PORT}/`
+- 听·山河（红歌）：`http://localhost:{$PORT}/circle`
+- 问·古今（对话）：`http://localhost:{$PORT}/making`
+- 阅·峥嵘（视频）：`http://localhost:{$PORT}/plaza`
+- 谱·华章（创作）：`http://localhost:{$PORT}/creation`
+- 我的收藏：`http://localhost:{$PORT}/favorites`
 
-### 步骤七：首次使用指南
+### 步骤三：首次使用指南
 
 1. **注册账号**
 
@@ -214,49 +121,6 @@ gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
    - **音乐创作**：在"谱·华章"中创作红歌歌词和音乐
    - **成就系统**：通过答题、创作等解锁成就徽章
 
-## 🛠️ 常用命令
-
-### 开发模式
-
-```bash
-# 启动开发服务器
-python app.py
-
-# 停止服务
-# 在终端中按 Ctrl + C
-```
-
-### 生产模式
-
-```bash
-# 使用 Gunicorn 启动
-gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
-
-# 后台运行（Linux）
-nohup gunicorn --workers 3 --bind 0.0.0.0:5000 app:app > app.log 2>&1 &
-```
-
-### 数据库管理
-
-```bash
-# 重置数据库（删除所有数据）
-rm project.db
-python app.py  # 重新启动会自动创建数据库
-
-# 数据库文件位置
-# Linux/macOS: 项目根目录下的 project.db
-# Windows: 项目根目录下的 project.db
-```
-
-### 查看日志
-
-```bash
-# 如果使用 nohup 后台运行
-tail -f app.log
-
-# 实时查看日志最后 100 行
-tail -100f app.log
-```
 
 ## 📁 项目结构
 
@@ -269,7 +133,8 @@ redsong_system/
 ├── .env                   # 环境变量配置（需手动创建）
 ├── README.md              # 本文档
 ├── deploy.sh              # 一键部署脚本
-├── start.sh               # 快速启动脚本
+├── start_with_ngrok.sh    # 一键启动脚本
+├── build_and_push.sh      # 一键构建docker镜像并推送脚本
 ├── Dockerfile             # Docker 容器配置
 ├── services/              # 业务服务层
 │   ├── __init__.py
@@ -356,12 +221,9 @@ PORT=8000  # 改为其他端口
 
 # 解决方案二：停止占用端口的程序
 # 查找占用端口的进程
-lsof -i :5000  # Linux/macOS
-netstat -ano | findstr :5000  # Windows
-
+lsof -i :5000
 # 杀死进程
-kill -9 <PID>  # Linux/macOS
-taskkill /PID <PID> /F  # Windows
+kill -9 <PID>
 ```
 
 ### 问题 4：API 密钥错误
@@ -386,21 +248,3 @@ chmod 664 project.db  # 修改权限（Linux/macOS）
 rm project.db
 python app.py  # 重新启动会自动创建
 ```
-
-## 📞 技术支持
-
-如遇到问题，请按以下步骤排查：
-
-1. 检查本 README 的"故障排除"部分
-2. 查看应用日志输出
-3. 确认所有环境变量配置正确
-4. 确认虚拟环境已正确激活
-5. 验证所有依赖已正确安装
-
-## 📄 许可证
-
-本项目采用 MIT 许可证。
-
----
-
-**注意**：本项目仅用于教育和研究目的。请确保遵守相关 API 服务的使用条款。

@@ -65,8 +65,23 @@ else
     echo ">>> 未检测到 NGROK_AUTHTOKEN，跳过 ngrok 配置。"
 fi
 
-# 2. 启动主应用 (Gunicorn)
-# 使用 exec 替换当前 shell 进程，确保信号能传递给 Gunicorn
-echo ">>> 正在启动 Gunicorn..."
-# exec gunicorn -w 4 -b 0.0.0.0:5000 app:app
-exec python app.py
+# 2. 启动主应用
+# 逻辑：优先使用 Gunicorn。如果失败（崩溃或未安装），则回退到 Python 原生启动。
+TARGET_PORT=${PORT:-5000}
+echo ">>> 准备启动应用 (端口: $TARGET_PORT)..."
+
+if command -v gunicorn >/dev/null 2>&1; then
+    echo ">>> 正在使用 Gunicorn 启动..."
+    # 运行 gunicorn。如果它以非零状态退出（崩溃），if 条件成立，执行回退逻辑。
+    # 正常停止（Ctrl+C）通常返回 0，不会触发回退。
+    if ! gunicorn --workers 3 --bind 0.0.0.0:$TARGET_PORT app:app; then
+        echo ">>> 警告: Gunicorn 启动失败或异常退出。"
+        echo ">>> 正在尝试切换到 Python 原生启动模式..."
+        exec python app.py
+    else
+        echo ">>> Gunicorn 已正常停止。"
+    fi
+else
+    echo ">>> 未检测到 Gunicorn，直接使用 Python 启动..."
+    exec python app.py
+fi

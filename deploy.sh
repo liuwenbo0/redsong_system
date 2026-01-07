@@ -93,17 +93,11 @@ install_dependencies() {
 
 # 检查和创建环境变量文件
 setup_env() {
-    log_info "设置环境变量..."
+    log_info "检查环境变量..."
     
     if [ ! -f ".env" ]; then
-        if [ -f ".env.example" ]; then
-            cp .env.example .env
-            log_success "已从 .env.example 创建 .env 文件"
-            log_warning "请记得编辑 .env 文件配置API密钥"
-        else
-            log_error ".env.example 文件不存在"
-            # 不强制退出，允许手动配置
-        fi
+        log_error ".env 文件不存在！请确保项目包含 .env 文件。"
+        # 不强制退出，允许用户手动解决
     else
         log_success ".env 文件已存在"
     fi
@@ -145,59 +139,6 @@ except Exception as e:
     fi
 }
 
-# 创建启动脚本
-create_start_script() {
-    log_info "创建启动脚本..."
-    
-    cat > start.sh << 'EOF'
-#!/bin/bash
-# 数智红韵网启动脚本
-
-# 激活虚拟环境
-source .venv/bin/activate
-
-# 设置环境变量
-export FLASK_APP=app.py
-
-# 启动应用
-echo "正在启动数智红韵网..."
-echo "访问地址: http://localhost:5000"
-echo "按 Ctrl+C 停止服务"
-echo
-
-python app.py
-EOF
-    
-    chmod +x start.sh
-    log_success "启动脚本 start.sh 创建完成"
-}
-
-# 创建Gunicorn启动脚本
-create_gunicorn_script() {
-    log_info "创建Gunicorn启动脚本..."
-    
-    cat > start_gunicorn.sh << 'EOF'
-#!/bin/bash
-# 数智红韵网 Gunicorn启动脚本
-
-# 激活虚拟环境
-source .venv/bin/activate
-
-# 设置环境变量
-export FLASK_APP=app.py
-
-# 启动Gunicorn
-echo "正在使用Gunicorn启动数智红韵网..."
-echo "访问地址: http://localhost:8000"
-echo "按 Ctrl+C 停止服务"
-echo
-
-gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
-EOF
-    
-    chmod +x start_gunicorn.sh
-    log_success "Gunicorn启动脚本 start_gunicorn.sh 创建完成"
-}
 
 # 检查端口占用
 check_port() {
@@ -236,8 +177,29 @@ main() {
     setup_env
     check_database
     test_app
-    create_start_script
-    create_gunicorn_script
+    
+    # 额外工具检查
+    log_info "检查辅助工具..."
+    if ! command_exists jq; then
+        log_warning "未检测到 'jq'。start_with_ngrok.sh 需要 jq 来解析 ngrok URL。"
+        log_info "推荐安装: brew install jq (macOS) 或 apt install jq (Linux)"
+    fi
+    if ! command_exists ngrok; then
+        log_warning "未检测到 'ngrok'。如果需要外网访问，请安装 ngrok。"
+    fi
+    
+    # 赋予脚本执行权限
+    chmod +x start_with_ngrok.sh build_and_push.sh
+    
+    # 获取端口配置
+    APP_PORT=5000
+    if [ -f ".env" ]; then
+        # 尝试从 .env 读取 PORT，忽略注释
+        ENV_PORT=$(grep "^PORT=" .env | cut -d '=' -f2 | tr -d '[:space:]')
+        if [ -n "$ENV_PORT" ]; then
+            APP_PORT=$ENV_PORT
+        fi
+    fi
     
     echo
     log_success "部署完成！"
@@ -245,22 +207,20 @@ main() {
     echo "=========================================="
     echo "  启动方式:"
     echo "=========================================="
-    echo "开发模式: ./start.sh"
-    echo "生产模式: ./start_gunicorn.sh"
+    echo "运行以下脚本启动应用 (支持 ngrok):"
+    echo "   ./start_with_ngrok.sh"
+    echo
+    echo "启动后，您可以通过以下地址访问:"
+    echo "   本地访问: http://localhost:$APP_PORT"
     echo "=========================================="
     echo
     
     # 检查端口并提示启动
-    if check_port 5000; then
-        log_info "端口5000可用，可以直接启动开发模式"
+    if check_port $APP_PORT; then
+        log_info "端口$APP_PORT可用，可以直接启动应用"
     else
-        log_warning "端口5000被占用，请检查或使用其他端口"
-    fi
-    
-    if check_port 8000; then
-        log_info "端口8000可用，可以直接启动生产模式"
-    else
-        log_warning "端口8000被占用，请检查或使用其他端口"
+        log_warning "端口$APP_PORT被占用！"
+        log_info "请修改 .env 文件中的 PORT 变量更换为其他可用端口 (例如: PORT=$((APP_PORT + 1)))"
     fi
 }
 
