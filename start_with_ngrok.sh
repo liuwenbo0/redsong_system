@@ -10,6 +10,15 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
+# 自动激活虚拟环境
+if [ -f ".venv/bin/activate" ]; then
+    echo ">>> 检测到虚拟环境，正在激活..."
+    source .venv/bin/activate
+elif [ -f "venv/bin/activate" ]; then
+    echo ">>> 检测到虚拟环境 (venv)，正在激活..."
+    source venv/bin/activate
+fi
+
 # 1. 尝试配置并启动 ngrok
 if [ -n "$NGROK_AUTHTOKEN" ]; then
     echo ">>> 检测到 NGROK_AUTHTOKEN，正在配置 ngrok..."
@@ -77,11 +86,11 @@ if command -v gunicorn >/dev/null 2>&1; then
     if ! gunicorn --workers 3 --bind 0.0.0.0:$TARGET_PORT app:app; then
         echo ">>> 警告: Gunicorn 启动失败或异常退出。"
         echo ">>> 正在尝试切换到 Python 原生启动模式..."
-        exec python app.py
+        exec python3 app.py
     else
         echo ">>> Gunicorn 已正常停止。"
     fi
 else
     echo ">>> 未检测到 Gunicorn，直接使用 Python 启动..."
-    exec python app.py
+    exec python3 app.py
 fi

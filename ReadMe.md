@@ -53,22 +53,25 @@
 #### I. 拉取Docker镜像直接运行
 
 我们利用Costrict将项目封装到了一个Docker镜像中,安装[docker](https://docs.docker.com/desktop/)后,运行下面的命令可以直接部署(默认使用5001端口)
+此方式支持全平台部署
 
 ```bash
-docker run -d -p 5001:5000 webliu/redsong-system:test
+docker run -d -p 5001:5001 webliu/redsong-system:test
 ```
 
 
 #### II. 配置本地环境部署
 
+注意此方法目前只适配Debian系的linux系统
+
 ##### 首先获取项目文件
 ```bash
 # 克隆项目（如果您有 Git 仓库）
-git clone https://github.com/maomao517/redsong_system.git
+git clone https://github.com/liuwenbo0/redsong_system.git
 cd redsong_system
 
 # 或者直接下载项目文件夹并进入目录
-wget https://github.com/maomao517/redsong_system/archive/refs/heads/master.zip
+wget https://github.com/liuwenbo0/redsong_system/archive/refs/heads/main.zip
 cd redsong_system
 ```
 
@@ -89,17 +92,17 @@ cd redsong_system
 ### 步骤二：访问应用
 
 1. 打开浏览器
-2. 在地址栏输入：`http://localhost:{$PORT}`(环境变量文件.env中PORT的值)
+2. 在地址栏输入：`http://localhost:5001`(端口号取决于环境变量文件.env中PORT的值,默认是5001)
 3. 您将看到数智红韵网的主页
 
 **主要功能页面：**
 
-- 主页：`http://localhost:{$PORT}/`
-- 听·山河（红歌）：`http://localhost:{$PORT}/circle`
-- 问·古今（对话）：`http://localhost:{$PORT}/making`
-- 阅·峥嵘（视频）：`http://localhost:{$PORT}/plaza`
-- 谱·华章（创作）：`http://localhost:{$PORT}/creation`
-- 我的收藏：`http://localhost:{$PORT}/favorites`
+- 主页：`http://localhost:5001/`
+- 听·山河（红歌）：`http://localhost:5001/circle`
+- 问·古今（对话）：`http://localhost:5001/making`
+- 阅·峥嵘（视频）：`http://localhost:5001/plaza`
+- 谱·华章（创作）：`http://localhost:5001/creation`
+- 我的收藏：`http://localhost:5001/favorites`
 
 ### 步骤三：首次使用指南
 
@@ -113,7 +116,7 @@ cd redsong_system
 2. **登录系统**
 
    - 使用注册的用户名和密码登录
-   - 登录后可使用收藏、创作等高级功能
+   - 登录后可使用收藏,评论等高级功能
 
 3. **体验主要功能**
    - **红歌欣赏**：在"听·山河"中搜索和播放红歌
@@ -217,11 +220,11 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```bash
 # 错误提示：Address already in use
 # 解决方案一：修改 .env 文件中的 PORT
-PORT=8000  # 改为其他端口
+PORT=5000  # 改为其他端口
 
 # 解决方案二：停止占用端口的程序
 # 查找占用端口的进程
-lsof -i :5000
+lsof -i :5001
 # 杀死进程
 kill -9 <PID>
 ```
@@ -242,7 +245,7 @@ cat .env  # 查看 API 密钥是否正确填写
 # 错误提示：database is locked
 # 解决方案：检查数据库文件权限
 ls -la project.db  # 查看文件权限
-chmod 664 project.db  # 修改权限（Linux/macOS）
+chmod 664 project.db  # 修改权限
 
 # 或者删除数据库文件重新创建
 rm project.db

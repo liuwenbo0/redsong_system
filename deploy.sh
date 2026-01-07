@@ -34,6 +34,82 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# 准备系统基础环境
+prepare_system() {
+    local sys_type="unknown"
+    if command_exists apt-get; then sys_type="apt"; fi
+    if command_exists apk; then sys_type="apk"; fi
+    if command_exists dnf; then sys_type="dnf"; elif command_exists yum; then sys_type="yum"; fi
+
+    if [ "$sys_type" != "unknown" ]; then
+        log_info "检测到包管理器: $sys_type，正在检查基础依赖..."
+        
+        # 定义通用依赖名，特定系统可能需要映射
+        # 核心依赖: curl, python3, pip, venv, jq
+        local deps=("curl" "python3" "jq")
+        # 根据系统差异调整包名或添加特定包
+        case $sys_type in
+            apt)
+                deps+=("python3-venv" "python3-pip")
+                ;;
+            apk)
+                # Alpine 分得比较细
+                deps+=("py3-pip" "py3-virtualenv")
+                ;;
+            dnf|yum)
+                # RHEL 系通常 python3 自带 venv，但有时需要单独装
+                # 尝试通用的 python3-pip，有些旧版可能需要 python3-devel
+                deps+=("python3-pip") 
+                ;;
+        esac
+
+        local missing_deps=()
+        for dep in "${deps[@]}"; do
+            if ! command_exists "$dep"; then
+                # 简单的命令名检查可能不准确 (例如 py3-pip 对应命令 pip3)
+                # 这里主要依赖包管理器去尝试安装，不做过于严格的预检
+                missing_deps+=("$dep")
+            fi
+        done
+
+        # 只要不是全齐，就尝试运行安装命令 (包管理器通常会自动跳过已安装的)
+        if [ ${#missing_deps[@]} -eq 0 ] && command_exists python3 && command_exists curl; then
+             log_success "基础依赖看起来已就绪"
+             return
+        fi
+        
+        log_info "正在尝试安装/更新依赖..."
+        case $sys_type in
+            apt)
+                cmd_prefix=""
+                if [ "$EUID" -ne 0 ] && command_exists sudo; then cmd_prefix="sudo"; fi
+                $cmd_prefix apt-get update
+                $cmd_prefix apt-get install -y "${deps[@]}"
+                ;;
+            apk)
+                # Alpine 通常是 root 运行
+                apk update
+                apk add --no-cache "${deps[@]}"
+                ;;
+            dnf)
+                $cmd_prefix dnf install -y "${deps[@]}"
+                ;;
+            yum)
+                $cmd_prefix yum install -y "${deps[@]}"
+                ;;
+        esac
+    else
+        log_warning "未识别的 Linux 发行版，跳过自动依赖安装。请确保已安装 curl 和 Python3。"
+    fi
+}
+
+# 检查并安装 curl (保留作为兼容性检查)
+check_curl() {
+    if ! command_exists curl; then
+        prepare_system
+    fi
+}
+
 # 检查uv是否安装
 check_uv() {
     log_info "检查uv环境..."
@@ -43,9 +119,17 @@ check_uv() {
             brew install uv
         else
             curl -LsSf https://astral.sh/uv/install.sh | sh
-            source $HOME/.cargo/env
+            # 某些系统安装后需要加载路径
+            if [ -f "$HOME/.cargo/env" ]; then
+                source "$HOME/.cargo/env"
+            fi
         fi
         
+        # 再次检查路径，如果 sh 安装后不在 PATH 中，尝试常见路径
+        if ! command_exists uv && [ -f "$HOME/.local/bin/uv" ]; then
+            export PATH="$HOME/.local/bin:$PATH"
+        fi
+
         if ! command_exists uv; then
              log_error "uv 安装失败，请手动安装: curl -LsSf https://astral.sh/uv/install.sh | sh"
              exit 1
@@ -58,12 +142,12 @@ check_uv() {
 create_venv() {
     log_info "创建Python虚拟环境 (.venv)..."
     
-    # uv 默认创建 .venv
-    if [ ! -d ".venv" ]; then
+    # 检查 venv 是否真的有效 (通过检查配置文件)，而不仅是检查目录存在
+    if [ ! -f ".venv/pyvenv.cfg" ]; then
         uv venv .venv
         log_success "虚拟环境创建完成"
     else
-        log_warning "虚拟环境 .venv 已存在，跳过创建"
+        log_warning "虚拟环境 .venv 已存在且有效，跳过创建"
     fi
 }
 
@@ -140,6 +224,40 @@ except Exception as e:
 }
 
 
+# 检查并安装 ngrok (仅 Linux/apt)
+install_ngrok() {
+    if command_exists ngrok; then
+        return 0
+    fi
+    
+    if [ "$(uname)" == "Linux" ] && command_exists apt-get; then
+        log_info "正在安装 ngrok..."
+        
+        # 添加 ngrok GPG key 和源
+        if ! [ -f /etc/apt/keyrings/ngrok.gpg ]; then
+            if [ "$EUID" -ne 0 ] && command_exists sudo; then
+                sudo mkdir -p /etc/apt/keyrings
+                curl -sS https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo gpg --dearmor -o /etc/apt/keyrings/ngrok.gpg
+                echo "deb [signed-by=/etc/apt/keyrings/ngrok.gpg] https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+                sudo apt-get update
+                sudo apt-get install -y ngrok
+            else
+                mkdir -p /etc/apt/keyrings
+                curl -sS https://ngrok-agent.s3.amazonaws.com/ngrok.asc | gpg --dearmor -o /etc/apt/keyrings/ngrok.gpg
+                echo "deb [signed-by=/etc/apt/keyrings/ngrok.gpg] https://ngrok-agent.s3.amazonaws.com buster main" | tee /etc/apt/sources.list.d/ngrok.list
+                apt-get update
+                apt-get install -y ngrok
+            fi
+        fi
+        
+        if command_exists ngrok; then
+            log_success "ngrok 安装成功"
+        else
+            log_warning "ngrok 安装失败，请稍后手动安装"
+        fi
+    fi
+}
+
 # 检查端口占用
 check_port() {
     local port=$1
@@ -170,6 +288,8 @@ main() {
     fi
     
     # 执行部署步骤
+    prepare_system
+    check_curl
     check_uv
     create_venv
     # activate_venv # 脚本中不需要 source，直接引用路径
@@ -177,6 +297,9 @@ main() {
     setup_env
     check_database
     test_app
+    
+    # 安装 ngrok (如果需要)
+    install_ngrok
     
     # 额外工具检查
     log_info "检查辅助工具..."
@@ -217,9 +340,9 @@ main() {
     
     # 检查端口并提示启动
     if check_port $APP_PORT; then
-        log_info "端口$APP_PORT可用，可以直接启动应用"
+        log_info "端口$APP_PORT 可用，可以直接启动应用"
     else
-        log_warning "端口$APP_PORT被占用！"
+        log_warning "端口$APP_PORT 被占用！"
         log_info "请修改 .env 文件中的 PORT 变量更换为其他可用端口 (例如: PORT=$((APP_PORT + 1)))"
     fi
 }
